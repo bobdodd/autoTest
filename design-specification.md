@@ -124,6 +124,169 @@ AutoTest is a Python-based automated accessibility testing tool with a graphical
 }
 ```
 
+### Accessibility Violation Severity Levels
+
+AutoTest uses a four-level severity classification system to prioritize accessibility issues based on their impact on users with disabilities. This system helps teams focus on the most critical issues first while providing a clear roadmap for comprehensive accessibility improvement.
+
+#### Critical Severity
+**Definition**: Violations that completely block access to content or functionality for users with disabilities.
+
+**Impact**: Users cannot complete essential tasks or access important information.
+
+**Examples**:
+- **Images without alt text**: Screen readers cannot convey image content to blind users
+  ```html
+  <!-- Violation -->
+  <img src="chart.png" />
+  
+  <!-- Fixed -->
+  <img src="chart.png" alt="Sales increased 25% from Q1 to Q2 2024" />
+  ```
+
+- **Form inputs without labels**: Users cannot understand what information to enter
+  ```html
+  <!-- Violation -->
+  <input type="email" placeholder="Email" />
+  
+  <!-- Fixed -->
+  <label for="email">Email Address</label>
+  <input type="email" id="email" placeholder="Email" />
+  ```
+
+- **Keyboard inaccessible content**: Users who cannot use a mouse are completely blocked
+  ```html
+  <!-- Violation -->
+  <div onclick="submitForm()">Submit</div>
+  
+  <!-- Fixed -->
+  <button type="submit" onclick="submitForm()">Submit</button>
+  ```
+
+#### Serious Severity
+**Definition**: Violations that make content very difficult to use or understand for users with disabilities.
+
+**Impact**: Users can access content but with significant difficulty or confusion.
+
+**Examples**:
+- **Insufficient color contrast**: Text is difficult or impossible to read
+  ```css
+  /* Violation: 2.1:1 contrast ratio */
+  .text { color: #999999; background-color: #ffffff; }
+  
+  /* Fixed: 4.5:1 contrast ratio */
+  .text { color: #595959; background-color: #ffffff; }
+  ```
+
+- **Missing page titles**: Users cannot understand page context or navigate effectively
+  ```html
+  <!-- Violation -->
+  <title></title>
+  
+  <!-- Fixed -->
+  <title>Customer Dashboard - AutoTest Accessibility Tool</title>
+  ```
+
+- **Broken heading hierarchy**: Screen reader users lose document structure navigation
+  ```html
+  <!-- Violation -->
+  <h1>Main Title</h1>
+  <h3>Skipped H2 Level</h3>
+  
+  <!-- Fixed -->
+  <h1>Main Title</h1>
+  <h2>Section Title</h2>
+  <h3>Subsection Title</h3>
+  ```
+
+#### Moderate Severity
+**Definition**: Violations that cause inconvenience or confusion for users with disabilities but don't completely block access.
+
+**Impact**: Users can complete tasks but with extra effort or workarounds.
+
+**Examples**:
+- **Missing landmark regions**: Navigation is less efficient for screen reader users
+  ```html
+  <!-- Violation -->
+  <div class="navigation">...</div>
+  <div class="content">...</div>
+  
+  <!-- Fixed -->
+  <nav aria-label="Main navigation">...</nav>
+  <main>...</main>
+  ```
+
+- **Missing focus indicators**: Keyboard users cannot see their current position
+  ```css
+  /* Violation */
+  button:focus { outline: none; }
+  
+  /* Fixed */
+  button:focus { outline: 2px solid #005fcc; outline-offset: 2px; }
+  ```
+
+- **Tables without headers**: Data relationships are unclear to screen reader users
+  ```html
+  <!-- Violation -->
+  <table>
+    <tr><td>Name</td><td>Age</td></tr>
+    <tr><td>John</td><td>25</td></tr>
+  </table>
+  
+  <!-- Fixed -->
+  <table>
+    <thead>
+      <tr><th scope="col">Name</th><th scope="col">Age</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>John</td><td>25</td></tr>
+    </tbody>
+  </table>
+  ```
+
+#### Minor Severity
+**Definition**: Violations that represent best practices or minor usability improvements for accessibility.
+
+**Impact**: Generally low impact on user experience but improve overall accessibility quality.
+
+**Examples**:
+- **Missing HTML lang attribute**: Screen readers may use incorrect pronunciation
+  ```html
+  <!-- Violation -->
+  <html>
+  
+  <!-- Fixed -->
+  <html lang="en">
+  ```
+
+- **Non-semantic markup**: Reduces assistive technology effectiveness
+  ```html
+  <!-- Violation -->
+  <div class="button" onclick="save()">Save</div>
+  
+  <!-- Fixed -->
+  <button type="button" onclick="save()">Save</button>
+  ```
+
+- **Missing meta viewport**: May cause display issues on mobile devices
+  ```html
+  <!-- Violation -->
+  <head><title>Page</title></head>
+  
+  <!-- Fixed -->
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Page</title>
+  </head>
+  ```
+
+#### Severity Prioritization Guidelines
+
+1. **Critical and Serious Issues First**: Address these immediately as they significantly impact user access
+2. **Batch Similar Issues**: Fix all instances of the same violation type together for efficiency
+3. **Consider User Journey**: Prioritize issues on critical user paths (login, checkout, etc.)
+4. **Test After Each Fix**: Verify that fixes don't introduce new issues
+5. **Document Decisions**: Keep track of accessibility decisions for future reference
+
 ### Core Features
 
 #### Project Management

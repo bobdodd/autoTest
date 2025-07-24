@@ -1,0 +1,819 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Edit {{ website.name }} - {{ project.name }} - {{ app_name }}{% endblock %}
+
+{% block meta_description %}Edit website configuration for {{ website.name }}, including URL, scraping settings, and accessibility testing parameters.{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb" class="breadcrumb">
+    <div class="container">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('main.index') }}" class="breadcrumb-link">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.list_projects') }}" class="breadcrumb-link">Projects</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.view_project', project_id=project.project_id) }}" class="breadcrumb-link">{{ project.name }}</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('websites.view_website', project_id=project.project_id, website_id=website.website_id) }}" class="breadcrumb-link">{{ website.name }}</a>
+            </li>
+            <li class="breadcrumb-item" aria-current="page">
+                <span class="breadcrumb-current">Edit</span>
+            </li>
+        </ol>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Page header -->
+    <header class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">Edit Website</h1>
+            <p class="page-description">
+                Update website information and configuration settings. Changes will be applied immediately.
+            </p>
+        </div>
+    </header>
+    
+    <!-- Website edit form -->
+    <div class="content-section">
+        <div class="form-container">
+            <form method="post" class="website-form" novalidate>
+                <!-- Basic Information -->
+                <fieldset class="form-fieldset">
+                    <legend class="form-legend">Website Information</legend>
+                    
+                    <div class="form-group">
+                        <label for="name" class="form-label required">
+                            Website Name
+                            <span class="required-indicator" aria-label="Required field">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="name" 
+                            name="name" 
+                            class="form-input"
+                            value="{{ website.name }}"
+                            required
+                            maxlength="100"
+                            aria-describedby="name-help"
+                            autocomplete="off"
+                        >
+                        <div id="name-help" class="form-help">
+                            A descriptive name to identify this website across your project.
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="base_url" class="form-label required">
+                            Base URL
+                            <span class="required-indicator" aria-label="Required field">*</span>
+                        </label>
+                        <input 
+                            type="url" 
+                            id="base_url" 
+                            name="base_url" 
+                            class="form-input"
+                            value="{{ website.base_url }}"
+                            required
+                            aria-describedby="base_url-help"
+                        >
+                        <div id="base_url-help" class="form-help">
+                            The main URL of the website. Changing this will affect page discovery.
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description" class="form-label">
+                            Description
+                            <span class="optional-indicator">(Optional)</span>
+                        </label>
+                        <textarea 
+                            id="description" 
+                            name="description" 
+                            class="form-textarea"
+                            rows="3"
+                            maxlength="500"
+                            aria-describedby="description-help"
+                        >{{ website.description or '' }}</textarea>
+                        <div id="description-help" class="form-help">
+                            Additional context about this website, testing objectives, or special considerations.
+                        </div>
+                    </div>
+                </fieldset>
+                
+                <!-- Scraping Configuration -->
+                <fieldset class="form-fieldset">
+                    <legend class="form-legend">Page Discovery Settings</legend>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="max_depth" class="form-label">
+                                Maximum Crawl Depth
+                            </label>
+                            <select id="max_depth" name="max_depth" class="form-select" aria-describedby="max_depth-help">
+                                <option value="1" {{ 'selected' if website.scraping_config.max_depth == 1 else '' }}>1 level (homepage only)</option>
+                                <option value="2" {{ 'selected' if website.scraping_config.max_depth == 2 else '' }}>2 levels</option>
+                                <option value="3" {{ 'selected' if website.scraping_config.max_depth == 3 else '' }}>3 levels (recommended)</option>
+                                <option value="4" {{ 'selected' if website.scraping_config.max_depth == 4 else '' }}>4 levels</option>
+                                <option value="5" {{ 'selected' if website.scraping_config.max_depth == 5 else '' }}>5 levels (deep crawl)</option>
+                            </select>
+                            <div id="max_depth-help" class="form-help">
+                                How many levels deep to follow links from the base URL.
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="max_pages" class="form-label">
+                                Maximum Pages
+                            </label>
+                            <select id="max_pages" name="max_pages" class="form-select" aria-describedby="max_pages-help">
+                                <option value="25" {{ 'selected' if website.scraping_config.max_pages == 25 else '' }}>25 pages</option>
+                                <option value="50" {{ 'selected' if website.scraping_config.max_pages == 50 else '' }}>50 pages</option>
+                                <option value="100" {{ 'selected' if website.scraping_config.max_pages == 100 else '' }}>100 pages</option>
+                                <option value="250" {{ 'selected' if website.scraping_config.max_pages == 250 else '' }}>250 pages</option>
+                                <option value="500" {{ 'selected' if website.scraping_config.max_pages == 500 else '' }}>500 pages</option>
+                                <option value="1000" {{ 'selected' if website.scraping_config.max_pages == 1000 else '' }}>1000 pages</option>
+                            </select>
+                            <div id="max_pages-help" class="form-help">
+                                Maximum number of pages to discover and test.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <fieldset class="checkbox-group">
+                            <legend class="checkbox-group-legend">Additional Options</legend>
+                            
+                            <div class="checkbox-item">
+                                <input 
+                                    type="checkbox" 
+                                    id="respect_robots" 
+                                    name="respect_robots" 
+                                    class="form-checkbox"
+                                    {{ 'checked' if website.scraping_config.respect_robots_txt else '' }}
+                                >
+                                <label for="respect_robots" class="checkbox-label">
+                                    Respect robots.txt
+                                    <span class="checkbox-description">Follow the website's robots.txt restrictions (recommended)</span>
+                                </label>
+                            </div>
+                            
+                            <div class="checkbox-item">
+                                <input 
+                                    type="checkbox" 
+                                    id="follow_external" 
+                                    name="follow_external" 
+                                    class="form-checkbox"
+                                    {{ 'checked' if website.scraping_config.follow_external_links else '' }}
+                                >
+                                <label for="follow_external" class="checkbox-label">
+                                    Follow external links
+                                    <span class="checkbox-description">Include links to other domains (use with caution)</span>
+                                </label>
+                            </div>
+                        </fieldset>
+                    </div>
+                </fieldset>
+                
+                <!-- Website metadata (read-only) -->
+                <fieldset class="form-fieldset">
+                    <legend class="form-legend">Website Details</legend>
+                    
+                    <div class="metadata-grid">
+                        <div class="metadata-item">
+                            <dt class="metadata-label">Created</dt>
+                            <dd class="metadata-value">
+                                <time datetime="{{ website.created_date }}">
+                                    {{ website.created_date | format_datetime }}
+                                </time>
+                            </dd>
+                        </div>
+                        
+                        {% if website.last_modified and website.last_modified != website.created_date %}
+                            <div class="metadata-item">
+                                <dt class="metadata-label">Last Modified</dt>
+                                <dd class="metadata-value">
+                                    <time datetime="{{ website.last_modified }}">
+                                        {{ website.last_modified | format_datetime }}
+                                    </time>
+                                </dd>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="metadata-item">
+                            <dt class="metadata-label">Website ID</dt>
+                            <dd class="metadata-value">
+                                <code class="website-id">{{ website.website_id }}</code>
+                            </dd>
+                        </div>
+                        
+                        <div class="metadata-item">
+                            <dt class="metadata-label">Pages Discovered</dt>
+                            <dd class="metadata-value">
+                                {{ website.pages | length }} {{ website.pages | length | pluralize('page', 'pages') }}
+                            </dd>
+                        </div>
+                        
+                        {% if website.last_scan_date %}
+                            <div class="metadata-item">
+                                <dt class="metadata-label">Last Scan</dt>
+                                <dd class="metadata-value">
+                                    <time datetime="{{ website.last_scan_date }}">
+                                        {{ website.last_scan_date | format_datetime }}
+                                    </time>
+                                </dd>
+                            </div>
+                        {% endif %}
+                    </div>
+                </fieldset>
+                
+                <!-- Form actions -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                            <path d="M19 21H5A2 2 0 013 19V5A2 2 0 015 3H16L21 8V19A2 2 0 0119 21Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M17 21V13H7V21" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M7 3V8H15" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        Save Changes
+                    </button>
+                    <a href="{{ url_for('websites.view_website', project_id=project.project_id, website_id=website.website_id) }}" class="btn btn-outline">
+                        <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                            <line x1="19" y1="12" x2="5" y2="12" stroke="currentColor" stroke-width="2"/>
+                            <polyline points="12,19 5,12 12,5" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Danger zone -->
+        <div class="danger-zone">
+            <h2 class="danger-title">Danger Zone</h2>
+            <div class="danger-content">
+                <div class="danger-info">
+                    <h3 class="danger-action-title">Delete Website</h3>
+                    <p class="danger-description">
+                        Permanently delete this website and all associated pages, test results, and data. This action cannot be undone.
+                    </p>
+                </div>
+                <div class="danger-actions">
+                    <button type="button" class="btn btn-danger btn-sm" onclick="showDeleteConfirmation()">
+                        <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                            <path d="M3 6H5H21" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M8 6V4A2 2 0 0110 2H14A2 2 0 0116 4V6M19 6V20A2 2 0 0117 22H7A2 2 0 015 20V6H19Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" stroke-width="2"/>
+                            <line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        Delete Website
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div id="delete-modal" class="modal" hidden aria-labelledby="delete-modal-title" aria-describedby="delete-modal-description">
+    <div class="modal-backdrop"></div>
+    <div class="modal-container" role="dialog" aria-modal="true">
+        <div class="modal-header">
+            <h2 id="delete-modal-title" class="modal-title">Delete Website</h2>
+            <button type="button" class="modal-close" onclick="hideDeleteConfirmation()" aria-label="Close dialog">
+                <svg aria-hidden="true" width="24" height="24">
+                    <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
+                    <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="delete-warning">
+                <svg class="delete-icon" aria-hidden="true" width="48" height="48">
+                    <path d="M10.29 3.86L1.82 18A2 2 0 003.54 21H20.46A2 2 0 0022.18 18L13.71 3.86A2 2 0 0010.29 3.86Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                    <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                <div class="delete-content">
+                    <p id="delete-modal-description" class="delete-description">
+                        You are about to permanently delete the website <strong>"{{ website.name }}"</strong> and all of its data.
+                    </p>
+                    <ul class="delete-consequences">
+                        <li>All discovered pages will be removed</li>
+                        <li>All accessibility test results will be lost</li>
+                        <li>All scan history will be deleted</li>
+                        <li>This action cannot be undone</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <form method="post" action="{{ url_for('websites.delete_website', project_id=project.project_id, website_id=website.website_id) }}" class="delete-form">
+                <div class="form-group">
+                    <label for="confirm-delete" class="form-label">
+                        Type <strong>delete</strong> to confirm:
+                    </label>
+                    <input 
+                        type="text" 
+                        id="confirm-delete" 
+                        name="confirm" 
+                        class="form-input"
+                        required 
+                        autocomplete="off"
+                        aria-describedby="confirm-help"
+                    >
+                    <div id="confirm-help" class="form-help">
+                        This confirmation helps prevent accidental deletions.
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-danger">
+                        <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                            <path d="M3 6H5H21" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M8 6V4A2 2 0 0110 2H14A2 2 0 0116 4V6M19 6V20A2 2 0 0117 22H7A2 2 0 015 20V6H19Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        Delete Website Permanently
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="hideDeleteConfirmation()">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Inherit styles from add.html and project edit.html */
+.form-container {
+    max-width: 700px;
+}
+
+.website-form {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: var(--spacing-2xl);
+}
+
+.form-fieldset {
+    border: none;
+    margin: 0 0 var(--spacing-2xl) 0;
+    padding: 0;
+}
+
+.form-fieldset:last-of-type {
+    margin-bottom: 0;
+}
+
+.form-legend {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    padding: 0;
+}
+
+.form-group {
+    margin-bottom: var(--spacing-lg);
+}
+
+.form-row {
+    display: grid;
+    gap: var(--spacing-lg);
+    grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 767px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.form-label {
+    display: block;
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.required-indicator {
+    color: var(--color-danger);
+    font-weight: var(--font-weight-bold);
+}
+
+.optional-indicator {
+    color: var(--color-text-muted);
+    font-weight: var(--font-weight-normal);
+}
+
+.form-input,
+.form-textarea,
+.form-select {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-family: inherit;
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-medium);
+    border-radius: var(--border-radius-md);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+}
+
+.form-help {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin-top: var(--spacing-xs);
+    line-height: var(--line-height-relaxed);
+}
+
+.checkbox-group {
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+.checkbox-group-legend {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-md);
+    padding: 0;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.checkbox-item:last-child {
+    margin-bottom: 0;
+}
+
+.form-checkbox {
+    margin-top: var(--spacing-xs);
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    accent-color: var(--color-primary);
+}
+
+.checkbox-label {
+    flex: 1;
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    cursor: pointer;
+}
+
+.checkbox-description {
+    display: block;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-normal);
+    color: var(--color-text-muted);
+    margin-top: var(--spacing-xs);
+    line-height: var(--line-height-relaxed);
+}
+
+.form-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border-light);
+}
+
+/* Metadata display */
+.metadata-grid {
+    display: grid;
+    gap: var(--spacing-md);
+}
+
+@media (min-width: 768px) {
+    .metadata-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.metadata-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.metadata-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-xs);
+}
+
+.metadata-value {
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.website-id {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    background-color: var(--color-bg-secondary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--color-border-light);
+}
+
+/* Danger zone - inherit from project edit */
+.danger-zone {
+    background-color: #fff5f5;
+    border: 1px solid #fed7d7;
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+}
+
+.danger-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-danger);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+}
+
+.danger-content {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-lg);
+}
+
+@media (max-width: 767px) {
+    .danger-content {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+.danger-action-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.danger-description {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin: 0;
+    line-height: var(--line-height-relaxed);
+}
+
+.danger-actions {
+    flex-shrink: 0;
+}
+
+/* Modal styles - inherit from project edit */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-lg);
+}
+
+.modal[hidden] {
+    display: none;
+}
+
+.modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-container {
+    position: relative;
+    background-color: var(--color-bg-primary);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-lg);
+    max-width: 500px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.modal-title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    transition: color var(--transition-fast);
+}
+
+.modal-close:hover,
+.modal-close:focus {
+    color: var(--color-text-primary);
+}
+
+.modal-body {
+    padding: var(--spacing-lg);
+}
+
+.delete-warning {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+    align-items: flex-start;
+}
+
+.delete-icon {
+    color: var(--color-danger);
+    flex-shrink: 0;
+}
+
+.delete-description {
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-md);
+    line-height: var(--line-height-relaxed);
+}
+
+.delete-consequences {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+    line-height: var(--line-height-relaxed);
+}
+
+.delete-consequences li {
+    margin-bottom: var(--spacing-xs);
+}
+
+.delete-form {
+    border-top: 1px solid var(--color-border-light);
+    padding-top: var(--spacing-lg);
+}
+
+.modal-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: flex-end;
+    margin-top: var(--spacing-lg);
+}
+
+@media (max-width: 767px) {
+    .form-actions,
+    .modal-actions {
+        flex-direction: column;
+    }
+    
+    .danger-content {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// URL validation and formatting
+document.getElementById('base_url').addEventListener('blur', function() {
+    let url = this.value.trim();
+    if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+        // Auto-add https:// if no protocol specified
+        this.value = 'https://' + url;
+    }
+});
+
+// Form validation
+document.querySelector('.website-form').addEventListener('submit', function(e) {
+    const name = document.getElementById('name').value.trim();
+    const baseUrl = document.getElementById('base_url').value.trim();
+    
+    let hasErrors = false;
+    
+    // Clear previous error states
+    document.querySelectorAll('.form-input, .form-textarea, .form-select').forEach(input => {
+        input.classList.remove('error');
+    });
+    
+    // Validate required fields
+    if (!name) {
+        document.getElementById('name').classList.add('error');
+        hasErrors = true;
+    }
+    
+    if (!baseUrl) {
+        document.getElementById('base_url').classList.add('error');
+        hasErrors = true;
+    } else if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+        document.getElementById('base_url').classList.add('error');
+        hasErrors = true;
+    }
+    
+    if (hasErrors) {
+        e.preventDefault();
+        // Focus on first error field
+        const firstError = document.querySelector('.form-input.error, .form-textarea.error, .form-select.error');
+        if (firstError) {
+            firstError.focus();
+        }
+    }
+});
+
+// Delete confirmation modal
+function showDeleteConfirmation() {
+    const modal = document.getElementById('delete-modal');
+    const confirmInput = document.getElementById('confirm-delete');
+    
+    modal.hidden = false;
+    confirmInput.focus();
+    
+    // Trap focus in modal
+    if (window.AutoTest && window.AutoTest.A11y) {
+        window.AutoTest.A11y.trapFocus(modal.querySelector('.modal-container'));
+    }
+    
+    // Close on escape key
+    function handleEscape(e) {
+        if (e.key === 'Escape') {
+            hideDeleteConfirmation();
+            document.removeEventListener('keydown', handleEscape);
+        }
+    }
+    document.addEventListener('keydown', handleEscape);
+    
+    // Close on backdrop click
+    modal.querySelector('.modal-backdrop').addEventListener('click', hideDeleteConfirmation);
+}
+
+function hideDeleteConfirmation() {
+    const modal = document.getElementById('delete-modal');
+    const confirmInput = document.getElementById('confirm-delete');
+    
+    modal.hidden = true;
+    confirmInput.value = '';
+    
+    // Return focus to delete button
+    document.querySelector('.btn-danger').focus();
+}
+
+// Add error state styles
+const style = document.createElement('style');
+style.textContent = `
+    .form-input.error,
+    .form-textarea.error,
+    .form-select.error {
+        border-color: var(--color-danger);
+        box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2);
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

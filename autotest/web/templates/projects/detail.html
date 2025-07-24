@@ -1,0 +1,721 @@
+{% extends "base/layout.html" %}
+
+{% block title %}{{ project.name }} - {{ app_name }}{% endblock %}
+
+{% block meta_description %}View project details for {{ project.name }}, including website overview, testing progress, and recent results.{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb" class="breadcrumb">
+    <div class="container">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('main.index') }}" class="breadcrumb-link">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.list_projects') }}" class="breadcrumb-link">Projects</a>
+            </li>
+            <li class="breadcrumb-item" aria-current="page">
+                <span class="breadcrumb-current">{{ project.name }}</span>
+            </li>
+        </ol>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Project header -->
+    <header class="project-header">
+        <div class="project-header-content">
+            <div class="project-title-section">
+                <h1 class="project-title">{{ project.name }}</h1>
+                {% if project.description %}
+                    <p class="project-description">{{ project.description }}</p>
+                {% endif %}
+            </div>
+            <div class="project-actions">
+                <a href="{{ url_for('projects.edit_project', project_id=project.project_id) }}" class="btn btn-outline btn-sm">
+                    <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                        <path d="M11 4H4A2 2 0 002 6V18A2 2 0 004 20H16A2 2 0 0018 18V11" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <path d="M18.5 2.5A2.121 2.121 0 0016 5L11 10V13H14L19 8A2.121 2.121 0 0021.5 5.5L18.5 2.5Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                    Edit Project
+                </a>
+                <button type="button" class="btn btn-primary" onclick="runAllTests()" id="run-tests-btn">
+                    <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                        <polygon points="5,3 19,12 5,21" fill="currentColor"/>
+                    </svg>
+                    Run All Tests
+                </button>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Project statistics -->
+    <section class="stats-section" aria-labelledby="stats-title">
+        <h2 id="stats-title" class="section-title">Project Overview</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Websites</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <path d="M21 16V8A2 2 0 0019 6H5A2 2 0 003 8V16A2 2 0 005 18H19A2 2 0 0021 16Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <path d="M7 6V4A2 2 0 019 2H15A2 2 0 0117 4V6" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value">{{ project.websites | length }}</div>
+                <div class="stat-label">
+                    {{ project.websites | length | pluralize('website', 'websites') }} configured
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Pages</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <path d="M14 2H6A2 2 0 004 4V20A2 2 0 006 22H18A2 2 0 0020 20V8L14 2Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <polyline points="14,2 14,8 20,8" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value">{{ total_pages or 0 }}</div>
+                <div class="stat-label">
+                    {{ total_pages or 0 | pluralize('page', 'pages') }} discovered
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Test Results</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <path d="M22 11.08V12A10 10 0 1112 2A10 10 0 0122 11.08Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value">{{ total_tests or 0 }}</div>
+                <div class="stat-label">
+                    {{ total_tests or 0 | pluralize('test', 'tests') }} completed
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Issues Found</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <path d="M10.29 3.86L1.82 18A2 2 0 003.54 21H20.46A2 2 0 0022.18 18L13.71 3.86A2 2 0 0010.29 3.86Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value">{{ total_issues or 0 }}</div>
+                <div class="stat-label">
+                    accessibility {{ total_issues or 0 | pluralize('issue', 'issues') }}
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Websites section -->
+    <section class="websites-section" aria-labelledby="websites-title">
+        <div class="section-header">
+            <h2 id="websites-title" class="section-title">Websites</h2>
+            <a href="{{ url_for('websites.add_website', project_id=project.project_id) }}" class="btn btn-primary btn-sm">
+                <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                    <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/>
+                    <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                Add Website
+            </a>
+        </div>
+        
+        {% if project.websites %}
+            <div class="websites-grid">
+                {% for website in project.websites %}
+                    <div class="website-card">
+                        <div class="website-header">
+                            <h3 class="website-title">
+                                <a href="{{ url_for('websites.view_website', project_id=project.project_id, website_id=website.website_id) }}" class="website-link">
+                                    {{ website.name }}
+                                </a>
+                            </h3>
+                            <div class="website-actions">
+                                <button type="button" class="btn btn-ghost btn-xs" onclick="testWebsite('{{ website.website_id }}')">
+                                    <svg class="btn-icon" aria-hidden="true" width="14" height="14">
+                                        <polygon points="5,3 19,12 5,21" fill="currentColor"/>
+                                    </svg>
+                                    Test
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="website-info">
+                            <div class="website-url">
+                                <a href="{{ website.base_url }}" target="_blank" rel="noopener noreferrer" class="external-link">
+                                    {{ website.base_url }}
+                                    <svg class="external-icon" aria-hidden="true" width="12" height="12">
+                                        <path d="M7 7H17V17" stroke="currentColor" fill="none" stroke-width="2"/>
+                                        <path d="M7 17L17 7" stroke="currentColor" fill="none" stroke-width="2"/>
+                                    </svg>
+                                    <span class="sr-only">(opens in new tab)</span>
+                                </a>
+                            </div>
+                            
+                            {% if website.description %}
+                                <p class="website-description">{{ website.description }}</p>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="website-stats">
+                            <div class="website-stat">
+                                <span class="website-stat-value">{{ website.pages | length }}</span>
+                                <span class="website-stat-label">{{ website.pages | length | pluralize('page', 'pages') }}</span>
+                            </div>
+                            {% if website.last_scan_date %}
+                                <div class="website-stat">
+                                    <span class="website-stat-label">Last scan:</span>
+                                    <time datetime="{{ website.last_scan_date }}" class="website-stat-value">
+                                        {{ website.last_scan_date | format_datetime }}
+                                    </time>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <svg aria-hidden="true" width="48" height="48">
+                        <path d="M21 16V8A2 2 0 0019 6H5A2 2 0 003 8V16A2 2 0 005 18H19A2 2 0 0021 16Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <path d="M7 6V4A2 2 0 019 2H15A2 2 0 0117 4V6" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h3 class="empty-title">No websites yet</h3>
+                <p class="empty-description">
+                    Add your first website to start testing for accessibility issues.
+                </p>
+                <a href="{{ url_for('websites.add_website', project_id=project.project_id) }}" class="btn btn-primary">
+                    <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                        <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/>
+                        <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Add First Website
+                </a>
+            </div>
+        {% endif %}
+    </section>
+    
+    <!-- Recent activity -->
+    {% if recent_activity %}
+        <section class="activity-section" aria-labelledby="activity-title">
+            <h2 id="activity-title" class="section-title">Recent Activity</h2>
+            <div class="activity-list">
+                {% for activity in recent_activity %}
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            {% if activity.type == 'test_completed' %}
+                                <svg aria-hidden="true" width="16" height="16">
+                                    <path d="M22 11.08V12A10 10 0 1112 2A10 10 0 0122 11.08Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                    <polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" fill="none" stroke-width="2"/>
+                                </svg>
+                            {% elif activity.type == 'scan_completed' %}
+                                <svg aria-hidden="true" width="16" height="16">
+                                    <circle cx="11" cy="11" r="8" stroke="currentColor" fill="none" stroke-width="2"/>
+                                    <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            {% else %}
+                                <svg aria-hidden="true" width="16" height="16">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                                    <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            {% endif %}
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-text">{{ activity.description }}</div>
+                            <time datetime="{{ activity.timestamp }}" class="activity-time">
+                                {{ activity.timestamp | format_datetime }}
+                            </time>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+    
+    <!-- Project metadata -->
+    <section class="metadata-section" aria-labelledby="metadata-title">
+        <h2 id="metadata-title" class="section-title">Project Information</h2>
+        <div class="metadata-grid">
+            <div class="metadata-item">
+                <dt class="metadata-label">Created</dt>
+                <dd class="metadata-value">
+                    <time datetime="{{ project.created_date }}">
+                        {{ project.created_date | format_datetime }}
+                    </time>
+                </dd>
+            </div>
+            
+            {% if project.last_modified and project.last_modified != project.created_date %}
+                <div class="metadata-item">
+                    <dt class="metadata-label">Last Modified</dt>
+                    <dd class="metadata-value">
+                        <time datetime="{{ project.last_modified }}">
+                            {{ project.last_modified | format_datetime }}
+                        </time>
+                    </dd>
+                </div>
+            {% endif %}
+            
+            <div class="metadata-item">
+                <dt class="metadata-label">Project ID</dt>
+                <dd class="metadata-value">
+                    <code class="project-id">{{ project.project_id }}</code>
+                </dd>
+            </div>
+            
+            <div class="metadata-item">
+                <dt class="metadata-label">Status</dt>
+                <dd class="metadata-value">
+                    <span class="status-badge status-active">Active</span>
+                </dd>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Project header */
+.project-header {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+    margin-bottom: var(--spacing-2xl);
+}
+
+.project-header-content {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-lg);
+}
+
+@media (max-width: 767px) {
+    .project-header-content {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+.project-title {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.project-description {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin: 0;
+}
+
+.project-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+    .project-actions {
+        justify-content: stretch;
+    }
+    
+    .project-actions .btn {
+        flex: 1;
+    }
+}
+
+/* Statistics grid */
+.stats-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.section-title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+}
+
+.stats-grid {
+    display: grid;
+    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.stat-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    text-align: center;
+}
+
+.stat-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.stat-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-icon {
+    color: var(--color-primary);
+}
+
+.stat-value {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.stat-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+/* Section headers */
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-lg);
+}
+
+@media (max-width: 767px) {
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-md);
+    }
+}
+
+/* Websites grid */
+.websites-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.websites-grid {
+    display: grid;
+    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.website-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    transition: box-shadow var(--transition-fast);
+}
+
+.website-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.website-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+    gap: var(--spacing-sm);
+}
+
+.website-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    margin: 0;
+}
+
+.website-link {
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.website-link:hover,
+.website-link:focus {
+    color: var(--color-primary);
+    text-decoration: underline;
+}
+
+.website-info {
+    margin-bottom: var(--spacing-lg);
+}
+
+.website-url {
+    margin-bottom: var(--spacing-sm);
+}
+
+.external-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    font-family: var(--font-family-mono);
+}
+
+.external-link:hover,
+.external-link:focus {
+    text-decoration: underline;
+}
+
+.external-icon {
+    flex-shrink: 0;
+}
+
+.website-description {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin: 0;
+}
+
+.website-stats {
+    display: flex;
+    gap: var(--spacing-lg);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--color-border-light);
+}
+
+.website-stat {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    text-align: center;
+}
+
+.website-stat-value {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.website-stat-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-3xl) var(--spacing-lg);
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+}
+
+.empty-icon {
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-lg);
+}
+
+.empty-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.empty-description {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-lg);
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Activity list */
+.activity-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.activity-list {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+}
+
+.activity-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) 0;
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.activity-item:first-child {
+    padding-top: 0;
+}
+
+.activity-icon {
+    color: var(--color-primary);
+    flex-shrink: 0;
+    margin-top: var(--spacing-xs);
+}
+
+.activity-content {
+    flex: 1;
+}
+
+.activity-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-xs);
+}
+
+.activity-time {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+/* Metadata */
+.metadata-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.metadata-grid {
+    display: grid;
+    gap: var(--spacing-md);
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+}
+
+@media (min-width: 768px) {
+    .metadata-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.metadata-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.metadata-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-xs);
+}
+
+.metadata-value {
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.project-id {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    background-color: var(--color-bg-secondary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--color-border-light);
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--border-radius-full);
+}
+
+.status-active {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function runAllTests() {
+    const button = document.getElementById('run-tests-btn');
+    const originalText = button.innerHTML;
+    
+    // Update button state
+    button.disabled = true;
+    button.innerHTML = `
+        <svg class="btn-icon animate-spin" aria-hidden="true" width="16" height="16">
+            <path d="M21 12A9 9 0 0112 3" stroke="currentColor" fill="none" stroke-width="2"/>
+        </svg>
+        Running Tests...
+    `;
+    
+    // Here you would make an AJAX call to start the testing process
+    // For now, we'll simulate the process
+    setTimeout(() => {
+        button.disabled = false;
+        button.innerHTML = originalText;
+        
+        // Show success message (you could implement a toast notification system)
+        console.log('All tests completed');
+    }, 3000);
+}
+
+function testWebsite(websiteId) {
+    // Similar function for testing individual websites
+    console.log('Testing website:', websiteId);
+}
+
+// Add spinning animation for loading states  
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    .animate-spin {
+        animation: spin 1s linear infinite;
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

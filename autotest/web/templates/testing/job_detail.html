@@ -1,0 +1,1061 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Job {{ job.job_id[:8] }} - Testing - {{ app_name }}{% endblock %}
+
+{% block meta_description %}View detailed results and progress for testing job {{ job.job_id[:8] }}.{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb" class="breadcrumb">
+    <div class="container">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('main.index') }}" class="breadcrumb-link">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('testing.dashboard') }}" class="breadcrumb-link">Testing</a>
+            </li>
+            <li class="breadcrumb-item" aria-current="page">
+                <span class="breadcrumb-current">Job {{ job.job_id[:8] }}</span>
+            </li>
+        </ol>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Job header -->
+    <header class="job-header">
+        <div class="job-title-section">
+            <h1 class="job-title">
+                {% if job.job_type == 'single_page' %}
+                    Single Page Test
+                {% elif job.job_type == 'batch_pages' %}
+                    Batch Page Test
+                {% elif job.job_type == 'website' %}
+                    Website Test
+                {% elif job.job_type == 'project' %}
+                    Project Test
+                {% else %}
+                    {{ job.job_type | replace('_', ' ') | title }} Test
+                {% endif %}
+            </h1>
+            <div class="job-meta">
+                <span class="job-id">ID: {{ job.job_id }}</span>
+                <span class="job-status">
+                    <span class="status-badge status-{{ job.status }}">
+                        {% if job.status == 'running' %}
+                            <svg class="status-icon animate-spin" aria-hidden="true" width="16" height="16">
+                                <path d="M21 12A9 9 0 0112 3" stroke="currentColor" fill="none" stroke-width="2"/>
+                            </svg>
+                            Running
+                        {% elif job.status == 'pending' %}
+                            <svg class="status-icon" aria-hidden="true" width="16" height="16">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                                <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            Pending
+                        {% elif job.status == 'completed' %}
+                            <svg class="status-icon" aria-hidden="true" width="16" height="16">
+                                <path d="M22 11.08V12A10 10 0 1112 2A10 10 0 0122 11.08Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                <polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" fill="none" stroke-width="2"/>
+                            </svg>
+                            Completed
+                        {% elif job.status == 'failed' %}
+                            <svg class="status-icon" aria-hidden="true" width="16" height="16">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                                <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            Failed
+                        {% elif job.status == 'cancelled' %}
+                            <svg class="status-icon" aria-hidden="true" width="16" height="16">
+                                <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
+                                <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            Cancelled
+                        {% else %}
+                            {{ job.status | title }}
+                        {% endif %}
+                    </span>
+                </span>
+                {% if job.started_at %}
+                    <time datetime="{{ job.started_at }}" class="job-time">
+                        Started {{ job.started_at | format_datetime }}
+                    </time>
+                {% endif %}
+            </div>
+            
+            <!-- Context information -->
+            {% if context.project %}
+                <div class="job-context">
+                    <span class="context-label">Project:</span>
+                    <a href="{{ url_for('projects.view_project', project_id=context.project.project_id) }}" class="context-link">
+                        {{ context.project.name }}
+                    </a>
+                </div>
+            {% endif %}
+            {% if context.website %}
+                <div class="job-context">
+                    <span class="context-label">Website:</span>
+                    <a href="{{ context.website.base_url }}" target="_blank" rel="noopener noreferrer" class="context-link">
+                        {{ context.website.name }}
+                        <svg class="external-icon" aria-hidden="true" width="12" height="12">
+                            <path d="M7 7H17V17" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M7 17L17 7" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="job-actions">
+            {% if job.status in ['running', 'pending'] %}
+                <button type="button" class="btn btn-outline btn-sm" onclick="refreshJob()" id="refresh-btn">
+                    <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                        <path d="M23 4V10H17" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <path d="M20.49 15A9 9 0 1118 4L20 6" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                    Refresh
+                </button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="cancelJob()">
+                    <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                        <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
+                        <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Cancel Job
+                </button>
+            {% endif %}
+        </div>
+    </header>
+    
+    <!-- Job progress -->
+    {% if job.status in ['running', 'pending'] %}
+        <section class="progress-section" aria-labelledby="progress-title">
+            <h2 id="progress-title" class="section-title">Progress</h2>
+            <div class="progress-card">
+                <div class="progress-stats">
+                    <div class="progress-stat">
+                        <span class="progress-stat-value">{{ job.completed_items }}</span>
+                        <span class="progress-stat-label">Completed</span>
+                    </div>
+                    <div class="progress-stat">
+                        <span class="progress-stat-value">{{ job.failed_items }}</span>
+                        <span class="progress-stat-label">Failed</span>
+                    </div>
+                    <div class="progress-stat">
+                        <span class="progress-stat-value">{{ job.total_items - job.completed_items - job.failed_items }}</span>
+                        <span class="progress-stat-label">Remaining</span>
+                    </div>
+                    <div class="progress-stat">
+                        <span class="progress-stat-value">{{ job.progress }}%</span>
+                        <span class="progress-stat-label">Progress</span>
+                    </div>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{ job.progress }}%"></div>
+                    </div>
+                    <div class="progress-text">{{ job.completed_items }}/{{ job.total_items }} items</div>
+                </div>
+            </div>
+        </section>
+    {% endif %}
+    
+    <!-- Error information -->
+    {% if job.error_message %}
+        <section class="error-section" aria-labelledby="error-title">
+            <h2 id="error-title" class="section-title">Error Details</h2>
+            <div class="error-card">
+                <div class="error-header">
+                    <svg class="error-icon" aria-hidden="true" width="24" height="24">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                        <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    <h3 class="error-title">Job Failed</h3>
+                </div>
+                <div class="error-message">{{ job.error_message }}</div>
+            </div>
+        </section>
+    {% endif %}
+    
+    <!-- Job results -->
+    {% if job.status == 'completed' and job.results %}
+        <section class="results-section" aria-labelledby="results-title">
+            <h2 id="results-title" class="section-title">Test Results</h2>
+            
+            <!-- Results summary -->
+            {% if job.results.summary %}
+                <div class="results-summary">
+                    <div class="summary-grid">
+                        <div class="summary-card">
+                            <div class="summary-header">
+                                <h3 class="summary-title">Pages Tested</h3>
+                                <svg class="summary-icon" aria-hidden="true" width="20" height="20">
+                                    <path d="M14 2H6A2 2 0 004 4V20A2 2 0 006 22H18A2 2 0 0020 20V8L14 2Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                    <polyline points="14,2 14,8 20,8" stroke="currentColor" fill="none" stroke-width="2"/>
+                                </svg>
+                            </div>
+                            <div class="summary-value">{{ job.results.summary.completed_pages or job.completed_items }}</div>
+                        </div>
+                        
+                        <div class="summary-card">
+                            <div class="summary-header">
+                                <h3 class="summary-title">Total Violations</h3>
+                                <svg class="summary-icon" aria-hidden="true" width="20" height="20">
+                                    <path d="M10.29 3.86L1.82 18A2 2 0 003.54 21H20.46A2 2 0 0022.18 18L13.71 3.86A2 2 0 0010.29 3.86Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                    <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            </div>
+                            <div class="summary-value">{{ job.results.summary.total_violations or 0 }}</div>
+                        </div>
+                        
+                        <div class="summary-card">
+                            <div class="summary-header">
+                                <h3 class="summary-title">Rules Passed</h3>
+                                <svg class="summary-icon" aria-hidden="true" width="20" height="20">
+                                    <path d="M22 11.08V12A10 10 0 1112 2A10 10 0 0122 11.08Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                    <polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" fill="none" stroke-width="2"/>
+                                </svg>
+                            </div>
+                            <div class="summary-value">{{ job.results.summary.total_passes or 0 }}</div>
+                        </div>
+                        
+                        {% if job.failed_items > 0 %}
+                            <div class="summary-card summary-failed">
+                                <div class="summary-header">
+                                    <h3 class="summary-title">Failed Pages</h3>
+                                    <svg class="summary-icon" aria-hidden="true" width="20" height="20">
+                                        <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                                        <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                        <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                                    </svg>
+                                </div>
+                                <div class="summary-value">{{ job.failed_items }}</div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+            
+            <!-- Individual page results -->
+            {% if job.results.page_results %}
+                <div class="page-results">
+                    <h3 class="page-results-title">Page Results</h3>
+                    <div class="page-results-list">
+                        {% for page_id, result in job.results.page_results.items() %}
+                            <div class="page-result-card">
+                                <div class="page-result-header">
+                                    <div class="page-result-info">
+                                        <h4 class="page-result-title">Page {{ loop.index }}</h4>
+                                        <span class="page-result-id">{{ page_id[:8] }}</span>
+                                    </div>
+                                    <div class="page-result-status">
+                                        {% if result.success %}
+                                            <span class="result-badge result-success">
+                                                <svg class="result-icon" aria-hidden="true" width="12" height="12">
+                                                    <path d="M22 11.08V12A10 10 0 1112 2A10 10 0 0122 11.08Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                                    <polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" fill="none" stroke-width="2"/>
+                                                </svg>
+                                                Tested
+                                            </span>
+                                        {% else %}
+                                            <span class="result-badge result-failed">
+                                                <svg class="result-icon" aria-hidden="true" width="12" height="12">
+                                                    <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                                                    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                                    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                                                </svg>
+                                                Failed
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                {% if result.success %}
+                                    {% if result.summary %}
+                                        <div class="page-result-summary">
+                                            <div class="result-stats">
+                                                <div class="result-stat">
+                                                    <span class="result-stat-value">{{ result.summary.violations }}</span>
+                                                    <span class="result-stat-label">Issues</span>
+                                                </div>
+                                                <div class="result-stat">
+                                                    <span class="result-stat-value">{{ result.summary.passes }}</span>
+                                                    <span class="result-stat-label">Passed</span>
+                                                </div>
+                                                {% if result.summary.incomplete %}
+                                                    <div class="result-stat">
+                                                        <span class="result-stat-value">{{ result.summary.incomplete }}</span>
+                                                        <span class="result-stat-label">Incomplete</span>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <!-- Top violations for this page -->
+                                    {% if result.violations %}
+                                        <div class="page-violations">
+                                            <h5 class="violations-title">Top Issues</h5>
+                                            <div class="violations-list">
+                                                {% for violation in result.violations[:3] %}
+                                                    <div class="violation-item">
+                                                        <div class="violation-severity violation-{{ violation.impact }}">
+                                                            {{ violation.impact | title }}
+                                                        </div>
+                                                        <div class="violation-description">
+                                                            {{ violation.description }}
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                                {% if result.violations | length > 3 %}
+                                                    <div class="violation-more">
+                                                        +{{ result.violations | length - 3 }} more issues
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="page-result-error">
+                                        <svg class="error-icon-small" aria-hidden="true" width="16" height="16">
+                                            <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                                            <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                            <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                        <span class="error-text">{{ result.error or 'Test failed' }}</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+    {% endif %}
+    
+    <!-- Job metadata -->
+    <section class="metadata-section" aria-labelledby="metadata-title">
+        <h2 id="metadata-title" class="section-title">Job Information</h2>
+        <div class="metadata-grid">
+            <div class="metadata-item">
+                <dt class="metadata-label">Job Type</dt>
+                <dd class="metadata-value">{{ job.job_type | replace('_', ' ') | title }}</dd>
+            </div>
+            
+            <div class="metadata-item">
+                <dt class="metadata-label">Total Items</dt>
+                <dd class="metadata-value">{{ job.total_items }}</dd>
+            </div>
+            
+            <div class="metadata-item">
+                <dt class="metadata-label">Completed</dt>
+                <dd class="metadata-value">{{ job.completed_items }}</dd>
+            </div>
+            
+            <div class="metadata-item">
+                <dt class="metadata-label">Failed</dt>
+                <dd class="metadata-value">{{ job.failed_items }}</dd>
+            </div>
+            
+            {% if job.started_at %}
+                <div class="metadata-item">
+                    <dt class="metadata-label">Started</dt>
+                    <dd class="metadata-value">
+                        <time datetime="{{ job.started_at }}">
+                            {{ job.started_at | format_datetime }}
+                        </time>
+                    </dd>
+                </div>
+            {% endif %}
+            
+            {% if job.completed_at %}
+                <div class="metadata-item">
+                    <dt class="metadata-label">Completed</dt>
+                    <dd class="metadata-value">
+                        <time datetime="{{ job.completed_at }}">
+                            {{ job.completed_at | format_datetime }}
+                        </time>
+                    </dd>
+                </div>
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Job header */
+.job-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-2xl);
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+}
+
+@media (max-width: 767px) {
+    .job-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+.job-title {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.job-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    flex-wrap: wrap;
+    margin-bottom: var(--spacing-sm);
+}
+
+.job-id {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    background-color: var(--color-bg-primary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--color-border-light);
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--border-radius-full);
+    white-space: nowrap;
+}
+
+.status-running {
+    background-color: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+.status-pending {
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fbbf24;
+}
+
+.status-completed {
+    background-color: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.status-failed {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.status-cancelled {
+    background-color: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.status-icon {
+    flex-shrink: 0;
+}
+
+.job-time {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.job-context {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+}
+
+.context-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    min-width: 60px;
+}
+
+.context-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+}
+
+.context-link:hover,
+.context-link:focus {
+    text-decoration: underline;
+}
+
+.external-icon {
+    flex-shrink: 0;
+}
+
+.job-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+    .job-actions {
+        justify-content: stretch;
+    }
+    
+    .job-actions .btn {
+        flex: 1;
+    }
+}
+
+/* Section styling */
+.section-title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+}
+
+/* Progress section */
+.progress-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.progress-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+}
+
+.progress-stats {
+    display: grid;
+    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    margin-bottom: var(--spacing-xl);
+}
+
+.progress-stat {
+    text-align: center;
+}
+
+.progress-stat-value {
+    display: block;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.progress-stat-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.progress-bar-container {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.progress-bar {
+    flex: 1;
+    height: 12px;
+    background-color: var(--color-bg-secondary);
+    border-radius: var(--border-radius-full);
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--color-primary);
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    min-width: 100px;
+    text-align: right;
+}
+
+/* Error section */
+.error-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.error-card {
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+}
+
+.error-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.error-icon {
+    color: var(--color-danger);
+    flex-shrink: 0;
+}
+
+.error-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-danger);
+    margin: 0;
+}
+
+.error-message {
+    font-size: var(--font-size-base);
+    color: var(--color-danger);
+    line-height: var(--line-height-relaxed);
+    padding-left: var(--spacing-3xl);
+}
+
+/* Results section */
+.results-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.results-summary {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.summary-grid {
+    display: grid;
+    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.summary-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    text-align: center;
+}
+
+.summary-failed {
+    background-color: #fef2f2;
+    border-color: #fecaca;
+}
+
+.summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.summary-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.summary-icon {
+    color: var(--color-primary);
+    flex-shrink: 0;
+}
+
+.summary-value {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+}
+
+/* Page results */
+.page-results {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+}
+
+.page-results-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+}
+
+.page-results-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.page-result-card {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-md);
+}
+
+.page-result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+}
+
+.page-result-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.page-result-id {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.result-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--border-radius-full);
+    white-space: nowrap;
+}
+
+.result-success {
+    background-color: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.result-failed {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.result-icon {
+    flex-shrink: 0;
+}
+
+.page-result-summary {
+    margin-bottom: var(--spacing-md);
+}
+
+.result-stats {
+    display: flex;
+    gap: var(--spacing-lg);
+}
+
+.result-stat {
+    text-align: center;
+}
+
+.result-stat-value {
+    display: block;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.result-stat-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.page-violations {
+    border-top: 1px solid var(--color-border-light);
+    padding-top: var(--spacing-md);
+}
+
+.violations-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.violations-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.violation-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+}
+
+.violation-severity {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--border-radius-full);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.violation-critical {
+    background-color: #fecaca;
+    color: #991b1b;
+    border: 1px solid #f87171;
+}
+
+.violation-serious {
+    background-color: #fed7aa;
+    color: #9a3412;
+    border: 1px solid #fb923c;
+}
+
+.violation-moderate {
+    background-color: #fde68a;
+    color: #92400e;
+    border: 1px solid #fbbf24;
+}
+
+.violation-minor {
+    background-color: #bfdbfe;
+    color: #1e40af;
+    border: 1px solid #60a5fa;
+}
+
+.violation-description {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    flex: 1;
+}
+
+.violation-more {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    text-align: center;
+    padding: var(--spacing-sm);
+    background-color: var(--color-bg-primary);
+    border-radius: var(--border-radius-sm);
+}
+
+.page-result-error {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: var(--border-radius-sm);
+}
+
+.error-icon-small {
+    color: var(--color-danger);
+    flex-shrink: 0;
+}
+
+.error-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-danger);
+}
+
+/* Metadata section */
+.metadata-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.metadata-grid {
+    display: grid;
+    gap: var(--spacing-md);
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+}
+
+@media (min-width: 768px) {
+    .metadata-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.metadata-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.metadata-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-xs);
+}
+
+.metadata-value {
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+/* Animations */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let refreshInterval = null;
+
+function refreshJob() {
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.innerHTML = `
+            <svg class="btn-icon animate-spin" aria-hidden="true" width="16" height="16">
+                <path d="M21 12A9 9 0 0112 3" stroke="currentColor" fill="none" stroke-width="2"/>
+            </svg>
+            Refreshing...
+        `;
+    }
+    
+    // Reload the page to get updated job status
+    window.location.reload();
+}
+
+function cancelJob() {
+    if (!confirm('Are you sure you want to cancel this job?')) {
+        return;
+    }
+    
+    fetch(`{{ url_for('testing.cancel_job', job_id=job.job_id) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Refresh to show updated status
+            window.location.reload();
+        } else {
+            alert('Failed to cancel job: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error cancelling job:', error);
+        alert('Error cancelling job');
+    });
+}
+
+// Auto-refresh for running jobs
+document.addEventListener('DOMContentLoaded', function() {
+    const jobStatus = '{{ job.status }}';
+    
+    if (jobStatus === 'running' || jobStatus === 'pending') {
+        // Auto-refresh every 3 seconds for running jobs
+        refreshInterval = setInterval(() => {
+            fetch(`{{ url_for('testing.job_status', job_id=job.job_id) }}`)
+            .then(response => response.json())
+            .then(data => {
+                // Update progress if still running
+                if (data.progress !== undefined) {
+                    const progressFill = document.querySelector('.progress-fill');
+                    const progressText = document.querySelector('.progress-text');
+                    
+                    if (progressFill) {
+                        progressFill.style.width = data.progress + '%';
+                    }
+                    
+                    if (progressText) {
+                        progressText.textContent = `${data.completed_items}/${data.total_items} items`;
+                    }
+                    
+                    // Update stats
+                    const statValues = document.querySelectorAll('.progress-stat-value');
+                    if (statValues.length >= 4) {
+                        statValues[0].textContent = data.completed_items;
+                        statValues[1].textContent = data.failed_items;
+                        statValues[2].textContent = data.total_items - data.completed_items - data.failed_items;
+                        statValues[3].textContent = data.progress + '%';
+                    }
+                }
+                
+                // Reload page if job completed
+                if (data.status !== 'running' && data.status !== 'pending') {
+                    clearInterval(refreshInterval);
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                }
+            })
+            .catch(error => {
+                console.error('Error checking job status:', error);
+            });
+        }, 3000);
+    }
+});
+
+// Clean up interval on page unload
+window.addEventListener('beforeunload', function() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+});
+</script>
+{% endblock %}

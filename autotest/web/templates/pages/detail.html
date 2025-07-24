@@ -1,0 +1,929 @@
+{% extends "base/layout.html" %}
+
+{% block title %}{{ page.title or page.url }} - {{ website.name }} - {{ project.name }} - {{ app_name }}{% endblock %}
+
+{% block meta_description %}View accessibility test results and details for {{ page.title or page.url }} in {{ website.name }}.{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb" class="breadcrumb">
+    <div class="container">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('main.index') }}" class="breadcrumb-link">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.list_projects') }}" class="breadcrumb-link">Projects</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.view_project', project_id=project.project_id) }}" class="breadcrumb-link">{{ project.name }}</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('websites.view_website', project_id=project.project_id, website_id=website.website_id) }}" class="breadcrumb-link">{{ website.name }}</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('pages.list_pages', project_id=project.project_id, website_id=website.website_id) }}" class="breadcrumb-link">Pages</a>
+            </li>
+            <li class="breadcrumb-item" aria-current="page">
+                <span class="breadcrumb-current">{{ page.title or (page.url | truncate(30)) }}</span>
+            </li>
+        </ol>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Page header -->
+    <header class="page-header">
+        <div class="page-header-content">
+            <div class="page-title-section">
+                <h1 class="page-title">{{ page.title or 'Untitled Page' }}</h1>
+                <div class="page-url">
+                    <a href="{{ page.url }}" target="_blank" rel="noopener noreferrer" class="external-link">
+                        {{ page.url }}
+                        <svg class="external-icon" aria-hidden="true" width="16" height="16">
+                            <path d="M7 7H17V17" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M7 17L17 7" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        <span class="sr-only">(opens in new tab)</span>
+                    </a>
+                </div>
+                {% if page.description %}
+                    <p class="page-description">{{ page.description }}</p>
+                {% endif %}
+            </div>
+            <div class="page-actions">
+                <button type="button" class="btn btn-primary btn-sm" onclick="testPage()" id="test-btn">
+                    <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                        <polygon points="5,3 19,12 5,21" fill="currentColor"/>
+                    </svg>
+                    Run Test
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="exportResults()">
+                    <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                        <path d="M21 15V19A2 2 0 0119 21H5A2 2 0 013 19V15" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <polyline points="7,10 12,15 17,10" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Export
+                </button>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Test status -->
+    <section class="status-section" aria-labelledby="status-title">
+        <h2 id="status-title" class="section-title">Test Status</h2>
+        <div class="status-card">
+            <div class="status-info">
+                <div class="status-badge-large">
+                    {% if page.last_test_date %}
+                        <svg class="status-icon" aria-hidden="true" width="24" height="24">
+                            <path d="M22 11.08V12A10 10 0 1112 2A10 10 0 0122 11.08Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        <span class="status-text">Tested</span>
+                    {% elif page.last_scan_date %}
+                        <svg class="status-icon" aria-hidden="true" width="24" height="24">
+                            <circle cx="11" cy="11" r="8" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        <span class="status-text">Scanned</span>
+                    {% else %}
+                        <svg class="status-icon" aria-hidden="true" width="24" height="24">
+                            <path d="M14 2H6A2 2 0 004 4V20A2 2 0 006 22H18A2 2 0 0020 20V8L14 2Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <polyline points="14,2 14,8 20,8" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        <span class="status-text">Discovered</span>
+                    {% endif %}
+                </div>
+                <div class="status-details">
+                    {% if page.last_test_date %}
+                        <div class="status-detail">
+                            <span class="status-detail-label">Last tested:</span>
+                            <time datetime="{{ page.last_test_date }}">
+                                {{ page.last_test_date | format_datetime }}
+                            </time>
+                        </div>
+                        {% set total_issues = page.issues | length if page.issues else 0 %}
+                        <div class="status-detail">
+                            <span class="status-detail-label">Issues found:</span>
+                            <span class="issue-count-display">
+                                {{ total_issues }} {{ total_issues | pluralize('issue', 'issues') }}
+                            </span>
+                        </div>
+                    {% else %}
+                        <div class="status-detail">
+                            <span class="status-detail-label">Status:</span>
+                            <span class="status-note">Page has not been tested yet</span>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Test results -->
+    {% if page.issues %}
+        <section class="results-section" aria-labelledby="results-title">
+            <h2 id="results-title" class="section-title">Test Results</h2>
+            
+            <!-- Issues summary -->
+            <div class="issues-summary">
+                {% for severity, issues in issues_by_severity.items() %}
+                    {% if issues %}
+                        <div class="issue-summary-card issue-{{ severity }}">
+                            <div class="issue-summary-header">
+                                <h3 class="issue-summary-title">
+                                    {% if severity == 'critical' %}
+                                        <svg class="issue-icon" aria-hidden="true" width="20" height="20">
+                                            <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                                            <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                            <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                        Critical Issues
+                                    {% elif severity == 'serious' %}
+                                        <svg class="issue-icon" aria-hidden="true" width="20" height="20">
+                                            <path d="M10.29 3.86L1.82 18A2 2 0 003.54 21H20.46A2 2 0 0022.18 18L13.71 3.86A2 2 0 0010.29 3.86Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                            <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/>
+                                            <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                        Serious Issues
+                                    {% elif severity == 'moderate' %}
+                                        <svg class="issue-icon" aria-hidden="true" width="20" height="20">
+                                            <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                                            <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2"/>
+                                            <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                        Moderate Issues
+                                    {% else %}
+                                        <svg class="issue-icon" aria-hidden="true" width="20" height="20">
+                                            <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                                            <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                        Minor Issues
+                                    {% endif %}
+                                </h3>
+                                <span class="issue-count">{{ issues | length }}</span>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            
+            <!-- Detailed issues -->
+            <div class="issues-detail">
+                {% for severity, issues in issues_by_severity.items() %}
+                    {% if issues %}
+                        <div class="severity-section" id="issues-{{ severity }}">
+                            <h3 class="severity-title">
+                                {{ severity.title() }} Issues ({{ issues | length }})
+                            </h3>
+                            <div class="issues-list">
+                                {% for issue in issues %}
+                                    <div class="issue-card">
+                                        <div class="issue-header">
+                                            <h4 class="issue-title">{{ issue.message }}</h4>
+                                            <span class="issue-rule">Rule: {{ issue.rule }}</span>
+                                        </div>
+                                        {% if issue.element %}
+                                            <div class="issue-element">
+                                                <h5 class="issue-element-title">Element</h5>
+                                                <code class="issue-code">{{ issue.element }}</code>
+                                            </div>
+                                        {% endif %}
+                                        <div class="issue-meta">
+                                            {% if issue.line %}
+                                                <span class="issue-line">Line {{ issue.line }}</span>
+                                            {% endif %}
+                                            <span class="issue-severity-badge issue-{{ severity }}">
+                                                {{ severity.title() }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </section>
+    {% elif page.last_test_date %}
+        <!-- No issues found -->
+        <section class="results-section" aria-labelledby="results-title">
+            <h2 id="results-title" class="section-title">Test Results</h2>
+            <div class="success-state">
+                <div class="success-icon">
+                    <svg aria-hidden="true" width="48" height="48">
+                        <path d="M22 11.08V12A10 10 0 1112 2A10 10 0 0122 11.08Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h3 class="success-title">No Accessibility Issues Found</h3>
+                <p class="success-description">
+                    This page passed all accessibility tests. Great work maintaining an accessible experience!
+                </p>
+                <div class="success-actions">
+                    <button type="button" class="btn btn-primary" onclick="testPage()">
+                        <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                            <polygon points="5,3 19,12 5,21" fill="currentColor"/>
+                        </svg>
+                        Run Test Again
+                    </button>
+                </div>
+            </div>
+        </section>
+    {% else %}
+        <!-- Not tested yet -->
+        <section class="results-section" aria-labelledby="results-title">
+            <h2 id="results-title" class="section-title">Test Results</h2>
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <svg aria-hidden="true" width="48" height="48">
+                        <polygon points="5,3 19,12 5,21" fill="none" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h3 class="empty-title">Page Not Tested Yet</h3>
+                <p class="empty-description">
+                    Run accessibility tests to identify potential issues and ensure WCAG compliance.
+                </p>
+                <div class="empty-actions">
+                    <button type="button" class="btn btn-primary" onclick="testPage()">
+                        <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                            <polygon points="5,3 19,12 5,21" fill="currentColor"/>
+                        </svg>
+                        Run Accessibility Test
+                    </button>
+                </div>
+            </div>
+        </section>
+    {% endif %}
+    
+    <!-- Page metadata -->
+    <section class="metadata-section" aria-labelledby="metadata-title">
+        <h2 id="metadata-title" class="section-title">Page Information</h2>
+        <div class="metadata-grid">
+            <div class="metadata-item">
+                <dt class="metadata-label">Discovery Method</dt>
+                <dd class="metadata-value">
+                    {% if page.discovery_method == 'manual' %}
+                        <span class="discovery-badge discovery-manual">Manually Added</span>
+                    {% else %}
+                        <span class="discovery-badge discovery-auto">Automatically Discovered</span>
+                    {% endif %}
+                </dd>
+            </div>
+            
+            {% if page.depth %}
+                <div class="metadata-item">
+                    <dt class="metadata-label">Crawl Depth</dt>
+                    <dd class="metadata-value">{{ page.depth }} levels from homepage</dd>
+                </div>
+            {% endif %}
+            
+            <div class="metadata-item">
+                <dt class="metadata-label">Added Date</dt>
+                <dd class="metadata-value">
+                    <time datetime="{{ page.added_date or page.created_date }}">
+                        {{ (page.added_date or page.created_date) | format_datetime }}
+                    </time>
+                </dd>
+            </div>
+            
+            {% if page.last_scan_date %}
+                <div class="metadata-item">
+                    <dt class="metadata-label">Last Scanned</dt>
+                    <dd class="metadata-value">
+                        <time datetime="{{ page.last_scan_date }}">
+                            {{ page.last_scan_date | format_datetime }}
+                        </time>
+                    </dd>
+                </div>
+            {% endif %}
+            
+            <div class="metadata-item">
+                <dt class="metadata-label">Page ID</dt>
+                <dd class="metadata-value">
+                    <code class="page-id">{{ page.page_id }}</code>
+                </dd>
+            </div>
+            
+            <div class="metadata-item">
+                <dt class="metadata-label">Status</dt>
+                <dd class="metadata-value">
+                    {% if page.last_test_date %}
+                        <span class="status-badge status-tested">Tested</span>
+                    {% elif page.last_scan_date %}
+                        <span class="status-badge status-scanned">Scanned</span>
+                    {% else %}
+                        <span class="status-badge status-discovered">Discovered</span>
+                    {% endif %}
+                </dd>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Page header */
+.page-header-content {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-lg);
+}
+
+@media (max-width: 767px) {
+    .page-header-content {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+.page-title {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.page-url {
+    margin-bottom: var(--spacing-sm);
+}
+
+.external-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-base);
+    font-family: var(--font-family-mono);
+    word-break: break-all;
+}
+
+.external-link:hover,
+.external-link:focus {
+    text-decoration: underline;
+}
+
+.external-icon {
+    flex-shrink: 0;
+}
+
+.page-description {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin: 0;
+}
+
+.page-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+    .page-actions .btn {
+        flex: 1;
+    }
+}
+
+/* Section titles */
+.section-title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+}
+
+/* Status section */
+.status-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.status-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+}
+
+.status-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+}
+
+@media (max-width: 767px) {
+    .status-info {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+    }
+}
+
+.status-badge-large {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    flex-shrink: 0;
+}
+
+.status-icon {
+    color: var(--color-primary);
+}
+
+.status-text {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.status-details {
+    flex: 1;
+}
+
+.status-detail {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.status-detail:last-child {
+    margin-bottom: 0;
+}
+
+.status-detail-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    min-width: 100px;
+}
+
+.issue-count-display {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.status-note {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    font-style: italic;
+}
+
+/* Results section */
+.results-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+/* Issues summary */
+.issues-summary {
+    display: grid;
+    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    margin-bottom: var(--spacing-2xl);
+}
+
+.issue-summary-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid;
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    text-align: center;
+}
+
+.issue-critical {
+    border-color: #dc2626;
+    background-color: #fef2f2;
+}
+
+.issue-serious {
+    border-color: #ea580c;
+    background-color: #fff7ed;
+}
+
+.issue-moderate {
+    border-color: #d97706;
+    background-color: #fffbeb;
+}
+
+.issue-minor {
+    border-color: #0891b2;
+    background-color: #f0f9ff;
+}
+
+.issue-summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.issue-summary-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.issue-icon {
+    flex-shrink: 0;
+}
+
+.issue-critical .issue-icon {
+    color: #dc2626;
+}
+
+.issue-serious .issue-icon {
+    color: #ea580c;
+}
+
+.issue-moderate .issue-icon {
+    color: #d97706;
+}
+
+.issue-minor .issue-icon {
+    color: #0891b2;
+}
+
+.issue-count {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+}
+
+/* Issues detail */
+.severity-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.severity-section:last-child {
+    margin-bottom: 0;
+}
+
+.severity-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.issues-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.issue-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-lg);
+}
+
+.issue-header {
+    margin-bottom: var(--spacing-md);
+}
+
+.issue-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-xs);
+    margin-top: 0;
+}
+
+.issue-rule {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    font-family: var(--font-family-mono);
+}
+
+.issue-element {
+    margin-bottom: var(--spacing-md);
+}
+
+.issue-element-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-xs);
+    margin-top: 0;
+}
+
+.issue-code {
+    display: block;
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-sm);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    word-break: break-all;
+    white-space: pre-wrap;
+}
+
+.issue-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.issue-line {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    font-family: var(--font-family-mono);
+}
+
+.issue-severity-badge {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--border-radius-full);
+    white-space: nowrap;
+}
+
+.issue-severity-badge.issue-critical {
+    background-color: #fecaca;
+    color: #991b1b;
+    border: 1px solid #f87171;
+}
+
+.issue-severity-badge.issue-serious {
+    background-color: #fed7aa;
+    color: #9a3412;
+    border: 1px solid #fb923c;
+}
+
+.issue-severity-badge.issue-moderate {
+    background-color: #fde68a;
+    color: #92400e;
+    border: 1px solid #fbbf24;
+}
+
+.issue-severity-badge.issue-minor {
+    background-color: #bfdbfe;
+    color: #1e40af;
+    border: 1px solid #60a5fa;
+}
+
+/* Success state */
+.success-state {
+    text-align: center;
+    padding: var(--spacing-3xl) var(--spacing-lg);
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: var(--border-radius-lg);
+}
+
+.success-icon {
+    color: #16a34a;
+    margin-bottom: var(--spacing-lg);
+}
+
+.success-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.success-description {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-lg);
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.success-actions {
+    display: flex;
+    justify-content: center;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-3xl) var(--spacing-lg);
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+}
+
+.empty-icon {
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-lg);
+}
+
+.empty-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.empty-description {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-lg);
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.empty-actions {
+    display: flex;
+    justify-content: center;
+}
+
+/* Metadata section */
+.metadata-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.metadata-grid {
+    display: grid;
+    gap: var(--spacing-md);
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+}
+
+@media (min-width: 768px) {
+    .metadata-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.metadata-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.metadata-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-xs);
+}
+
+.metadata-value {
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.page-id {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    background-color: var(--color-bg-secondary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--color-border-light);
+}
+
+.discovery-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--border-radius-full);
+    white-space: nowrap;
+}
+
+.discovery-manual {
+    background-color: #ddd6fe;
+    color: #5b21b6;
+    border: 1px solid #c4b5fd;
+}
+
+.discovery-auto {
+    background-color: #bfdbfe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--border-radius-full);
+    white-space: nowrap;
+}
+
+.status-tested {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.status-scanned {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.status-discovered {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    border: 1px solid #dee2e6;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function testPage() {
+    const button = document.getElementById('test-btn');
+    const originalText = button.innerHTML;
+    
+    // Update button state
+    button.disabled = true;
+    button.innerHTML = `
+        <svg class="btn-icon animate-spin" aria-hidden="true" width="16" height="16">
+            <path d="M21 12A9 9 0 0112 3" stroke="currentColor" fill="none" stroke-width="2"/>
+        </svg>
+        Testing...
+    `;
+    
+    // Start test
+    fetch(`{{ url_for('pages.test_page', project_id=project.project_id, website_id=website.website_id, page_id=page.page_id) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message and reload after delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+        } else {
+            button.disabled = false;
+            button.innerHTML = originalText;
+            console.error('Test failed:', data.error);
+        }
+    })
+    .catch(error => {
+        button.disabled = false;
+        button.innerHTML = originalText;
+        console.error('Test error:', error);
+    });
+}
+
+function exportResults() {
+    // TODO: Implement export functionality
+    console.log('Export results');
+}
+
+// Add spinning animation
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    .animate-spin {
+        animation: spin 1s linear infinite;
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

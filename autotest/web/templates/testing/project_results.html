@@ -1,0 +1,822 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Test Results - {{ project.name }} - {{ app_name }}{% endblock %}
+
+{% block meta_description %}View comprehensive accessibility test results and analytics for {{ project.name }}.{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb" class="breadcrumb">
+    <div class="container">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('main.index') }}" class="breadcrumb-link">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.list_projects') }}" class="breadcrumb-link">Projects</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.view_project', project_id=project.project_id) }}" class="breadcrumb-link">{{ project.name }}</a>
+            </li>
+            <li class="breadcrumb-item" aria-current="page">
+                <span class="breadcrumb-current">Test Results</span>
+            </li>
+        </ol>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Results header -->
+    <header class="results-header">
+        <div class="results-title-section">
+            <h1 class="results-title">Test Results</h1>
+            <p class="results-description">
+                Accessibility testing results and analysis for <strong>{{ project.name }}</strong>.
+            </p>
+        </div>
+        <div class="results-actions">
+            <a href="{{ url_for('testing.historical_comparison', project_id=project.project_id) }}" class="btn btn-outline btn-sm">
+                <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                    <path d="M3 3V9M9 3V21M15 8V21M21 13V21" stroke="currentColor" fill="none" stroke-width="2"/>
+                </svg>
+                View History
+            </a>
+            <a href="{{ url_for('testing.filtered_results', project_id=project.project_id) }}" class="btn btn-outline btn-sm">
+                <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                    <path d="M22 3H2L10 12.46V19L14 21V12.46L22 3Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                </svg>
+                Filter Issues
+            </a>
+            <a href="{{ url_for('testing.export_results', project_id=project.project_id, format='csv') }}" class="btn btn-outline btn-sm">
+                <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                    <path d="M21 15V19A2 2 0 0119 21H5A2 2 0 013 19V15" stroke="currentColor" fill="none" stroke-width="2"/>
+                    <polyline points="7,10 12,15 17,10" stroke="currentColor" fill="none" stroke-width="2"/>
+                    <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                Export CSV
+            </a>
+            <button type="button" class="btn btn-primary btn-sm" onclick="runProjectTest()">
+                <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                    <polygon points="5,3 19,12 5,21" fill="currentColor"/>
+                </svg>
+                Run All Tests
+            </button>
+        </div>
+    </header>
+    
+    <!-- Overall statistics -->
+    <section class="stats-section" aria-labelledby="stats-title">
+        <h2 id="stats-title" class="section-title">Project Overview</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Total Pages</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <path d="M14 2H6A2 2 0 004 4V20A2 2 0 006 22H18A2 2 0 0020 20V8L14 2Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <polyline points="14,2 14,8 20,8" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value">{{ stats.total_pages }}</div>
+                <div class="stat-label">across all websites</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Tested Pages</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <path d="M22 11.08V12A10 10 0 1112 2A10 10 0 0122 11.08Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value">{{ stats.tested_pages }}</div>
+                <div class="stat-label">{{ stats.completion_rate }}% complete</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Issues Found</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <path d="M10.29 3.86L1.82 18A2 2 0 003.54 21H20.46A2 2 0 0022.18 18L13.71 3.86A2 2 0 0010.29 3.86Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value">{{ stats.total_violations }}</div>
+                <div class="stat-label">accessibility violations</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Untested</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value">{{ stats.untested_pages }}</div>
+                <div class="stat-label">{{ stats.untested_pages | pluralize('page', 'pages') }} remaining</div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Progress visualization -->
+    <section class="progress-section" aria-labelledby="progress-title">
+        <h2 id="progress-title" class="section-title">Testing Progress</h2>
+        <div class="progress-card">
+            <div class="progress-header">
+                <h3 class="progress-title">Completion Rate</h3>
+                <span class="progress-percentage">{{ stats.completion_rate }}%</span>
+            </div>
+            <div class="progress-bar-large">
+                <div class="progress-fill-large" style="width: {{ stats.completion_rate }}%"></div>
+            </div>
+            <div class="progress-details">
+                <div class="progress-detail">
+                    <span class="progress-detail-value">{{ stats.tested_pages }}</span>
+                    <span class="progress-detail-label">Tested</span>
+                </div>
+                <div class="progress-detail">
+                    <span class="progress-detail-value">{{ stats.untested_pages }}</span>
+                    <span class="progress-detail-label">Remaining</span>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Website results -->
+    <section class="websites-section" aria-labelledby="websites-title">
+        <h2 id="websites-title" class="section-title">Website Results</h2>
+        
+        {% if websites %}
+            <div class="websites-grid">
+                {% for website_info in websites %}
+                    <div class="website-card">
+                        <div class="website-header">
+                            <div class="website-info">
+                                <h3 class="website-name">
+                                    <a href="{{ url_for('testing.website_results', project_id=project.project_id, website_id=website_info.website.website_id) }}" class="website-link">
+                                        {{ website_info.website.name }}
+                                    </a>
+                                </h3>
+                                <div class="website-url">
+                                    <a href="{{ website_info.website.base_url }}" target="_blank" rel="noopener noreferrer" class="external-link">
+                                        {{ website_info.website.base_url }}
+                                        <svg class="external-icon" aria-hidden="true" width="12" height="12">
+                                            <path d="M7 7H17V17" stroke="currentColor" fill="none" stroke-width="2"/>
+                                            <path d="M7 17L17 7" stroke="currentColor" fill="none" stroke-width="2"/>
+                                        </svg>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="website-stats">
+                            <div class="website-stat">
+                                <div class="website-stat-header">
+                                    <span class="website-stat-label">Pages</span>
+                                    <span class="website-stat-value">{{ website_info.total_pages }}</span>
+                                </div>
+                                <div class="website-stat-progress">
+                                    <div class="stat-progress-bar">
+                                        {% set completion = (website_info.tested_pages / website_info.total_pages * 100) if website_info.total_pages > 0 else 0 %}
+                                        <div class="stat-progress-fill" style="width: {{ completion }}%"></div>
+                                    </div>
+                                    <span class="stat-progress-text">{{ website_info.tested_pages }}/{{ website_info.total_pages }} tested</span>
+                                </div>
+                            </div>
+                            
+                            <div class="website-stat">
+                                <div class="website-stat-header">
+                                    <span class="website-stat-label">Issues</span>
+                                    <span class="website-stat-value {{ 'stat-value-issues' if website_info.violations > 0 else 'stat-value-clean' }}">
+                                        {{ website_info.violations }}
+                                    </span>
+                                </div>
+                                <div class="website-stat-detail">
+                                    {% if website_info.violations > 0 %}
+                                        <span class="stat-detail-text">requires attention</span>
+                                    {% else %}
+                                        <span class="stat-detail-text">no issues found</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="website-actions">
+                            <a href="{{ url_for('testing.website_results', project_id=project.project_id, website_id=website_info.website.website_id) }}" class="btn btn-ghost btn-sm">
+                                <svg class="btn-icon" aria-hidden="true" width="14" height="14">
+                                    <path d="M1 12S5 4 12 4S23 12 23 12S19 20 12 20S1 12 1 12Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                    <circle cx="12" cy="12" r="3" stroke="currentColor" fill="none" stroke-width="2"/>
+                                </svg>
+                                View Details
+                            </a>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="testWebsite('{{ website_info.website.website_id }}')">
+                                <svg class="btn-icon" aria-hidden="true" width="14" height="14">
+                                    <polygon points="5,3 19,12 5,21" fill="currentColor"/>
+                                </svg>
+                                Test
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <svg aria-hidden="true" width="48" height="48">
+                        <path d="M21 16V8A2 2 0 0019 6H5A2 2 0 003 8V16A2 2 0 005 18H19A2 2 0 0021 16Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <path d="M7 6V4A2 2 0 019 2H15A2 2 0 0117 4V6" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h3 class="empty-title">No Websites Found</h3>
+                <p class="empty-description">
+                    Add websites to this project to start accessibility testing.
+                </p>
+                <div class="empty-actions">
+                    <a href="{{ url_for('websites.add_website', project_id=project.project_id) }}" class="btn btn-primary">
+                        <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                            <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/>
+                            <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        Add Website
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </section>
+    
+    <!-- Quick actions -->
+    <section class="actions-section" aria-labelledby="actions-title">
+        <h2 id="actions-title" class="section-title">Quick Actions</h2>
+        <div class="actions-grid">
+            <div class="action-card">
+                <div class="action-header">
+                    <svg class="action-icon" aria-hidden="true" width="24" height="24">
+                        <polygon points="5,3 19,12 5,21" fill="currentColor"/>
+                    </svg>
+                    <h3 class="action-title">Run All Tests</h3>
+                </div>
+                <p class="action-description">
+                    Test all pages across all websites in this project for accessibility issues.
+                </p>
+                <button type="button" class="btn btn-primary" onclick="runProjectTest()">
+                    <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                        <polygon points="5,3 19,12 5,21" fill="currentColor"/>
+                    </svg>
+                    Start Testing
+                </button>
+            </div>
+            
+            <div class="action-card">
+                <div class="action-header">
+                    <svg class="action-icon" aria-hidden="true" width="24" height="24">
+                        <path d="M21 15V19A2 2 0 0119 21H5A2 2 0 013 19V15" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <polyline points="7,10 12,15 17,10" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    <h3 class="action-title">Export Results</h3>
+                </div>
+                <p class="action-description">
+                    Download test results in CSV or JSON format for analysis and reporting.
+                </p>
+                <div class="action-buttons">
+                    <a href="{{ url_for('testing.export_results', project_id=project.project_id, format='csv') }}" class="btn btn-outline btn-sm">
+                        Export CSV
+                    </a>
+                    <a href="{{ url_for('testing.export_results', project_id=project.project_id, format='json') }}" class="btn btn-outline btn-sm">
+                        Export JSON
+                    </a>
+                </div>
+            </div>
+            
+            <div class="action-card">
+                <div class="action-header">
+                    <svg class="action-icon" aria-hidden="true" width="24" height="24">
+                        <circle cx="11" cy="11" r="8" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    <h3 class="action-title">Discover Pages</h3>
+                </div>
+                <p class="action-description">
+                    Automatically discover new pages across all websites in this project.
+                </p>
+                <button type="button" class="btn btn-outline" onclick="discoverPages()">
+                    <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                        <circle cx="11" cy="11" r="8" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Start Discovery
+                </button>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Results header */
+.results-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-2xl);
+}
+
+@media (max-width: 767px) {
+    .results-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+.results-title {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.results-description {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin: 0;
+}
+
+.results-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+    .results-actions .btn {
+        flex: 1;
+    }
+}
+
+/* Statistics - reuse from previous templates */
+.stats-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.section-title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+}
+
+.stats-grid {
+    display: grid;
+    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.stat-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    text-align: center;
+}
+
+.stat-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.stat-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-icon {
+    color: var(--color-primary);
+}
+
+.stat-value {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.stat-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+/* Progress section */
+.progress-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.progress-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+}
+
+.progress-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-lg);
+}
+
+.progress-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.progress-percentage {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-primary);
+}
+
+.progress-bar-large {
+    height: 16px;
+    background-color: var(--color-bg-secondary);
+    border-radius: var(--border-radius-full);
+    overflow: hidden;
+    margin-bottom: var(--spacing-lg);
+}
+
+.progress-fill-large {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-primary) 0%, #34d399 100%);
+    transition: width 0.3s ease;
+}
+
+.progress-details {
+    display: flex;
+    justify-content: space-around;
+}
+
+.progress-detail {
+    text-align: center;
+}
+
+.progress-detail-value {
+    display: block;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.progress-detail-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Website results */
+.websites-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.websites-grid {
+    display: grid;
+    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+}
+
+.website-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    transition: box-shadow var(--transition-fast);
+}
+
+.website-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.website-header {
+    margin-bottom: var(--spacing-lg);
+}
+
+.website-name {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--spacing-xs);
+    margin-top: 0;
+}
+
+.website-link {
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.website-link:hover,
+.website-link:focus {
+    color: var(--color-primary);
+    text-decoration: underline;
+}
+
+.website-url {
+    margin-bottom: var(--spacing-sm);
+}
+
+.external-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    font-family: var(--font-family-mono);
+}
+
+.external-link:hover,
+.external-link:focus {
+    text-decoration: underline;
+}
+
+.external-icon {
+    flex-shrink: 0;
+}
+
+.website-stats {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-md) 0;
+    border-top: 1px solid var(--color-border-light);
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.website-stat {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.website-stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.website-stat-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.website-stat-value {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+}
+
+.stat-value-issues {
+    color: var(--color-danger);
+}
+
+.stat-value-clean {
+    color: var(--color-success);
+}
+
+.website-stat-progress {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.stat-progress-bar {
+    flex: 1;
+    height: 6px;
+    background-color: var(--color-bg-secondary);
+    border-radius: var(--border-radius-full);
+    overflow: hidden;
+}
+
+.stat-progress-fill {
+    height: 100%;
+    background-color: var(--color-primary);
+    transition: width 0.3s ease;
+}
+
+.stat-progress-text {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.website-stat-detail {
+    text-align: right;
+}
+
+.stat-detail-text {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.website-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-3xl) var(--spacing-lg);
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+}
+
+.empty-icon {
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-lg);
+}
+
+.empty-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.empty-description {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-lg);
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.empty-actions {
+    display: flex;
+    justify-content: center;
+}
+
+/* Actions section */
+.actions-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.actions-grid {
+    display: grid;
+    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.action-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    text-align: center;
+}
+
+.action-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.action-icon {
+    color: var(--color-primary);
+}
+
+.action-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.action-description {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-lg);
+    max-width: 250px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.action-buttons {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: center;
+}
+
+@media (max-width: 767px) {
+    .action-buttons {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function runProjectTest() {
+    const projectId = '{{ project.project_id }}';
+    
+    if (!confirm('This will test all pages across all websites in this project. This may take some time. Continue?')) {
+        return;
+    }
+    
+    // Start project test
+    fetch(`{{ url_for('testing.test_project', project_id=project.project_id) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Redirect to testing dashboard to monitor progress
+            window.location.href = `{{ url_for('testing.dashboard') }}`;
+        } else {
+            alert('Failed to start project test: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error starting project test:', error);
+        alert('Error starting project test');
+    });
+}
+
+function testWebsite(websiteId) {
+    if (!confirm('This will test all pages in the selected website. Continue?')) {
+        return;
+    }
+    
+    // Start website test
+    fetch(`{{ url_for('testing.test_website', website_id='WEBSITE_ID') }}`.replace('WEBSITE_ID', websiteId), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message and redirect to dashboard
+            alert('Website testing started. You can monitor progress in the testing dashboard.');
+            window.location.href = `{{ url_for('testing.dashboard') }}`;
+        } else {
+            alert('Failed to start website test: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error starting website test:', error);
+        alert('Error starting website test');
+    });
+}
+
+function discoverPages() {
+    alert('Page discovery functionality will be implemented in the next phase.');
+    // TODO: Implement page discovery across all websites
+}
+
+// Update progress bars on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate progress bars
+    const progressBars = document.querySelectorAll('.progress-fill-large, .stat-progress-fill');
+    progressBars.forEach(bar => {
+        const width = bar.style.width;
+        bar.style.width = '0%';
+        setTimeout(() => {
+            bar.style.width = width;
+        }, 300);
+    });
+});
+</script>
+{% endblock %}

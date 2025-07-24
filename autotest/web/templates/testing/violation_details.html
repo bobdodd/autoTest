@@ -1,0 +1,1058 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Violation Details - {{ app_name }}{% endblock %}
+
+{% block meta_description %}Detailed accessibility violation information with context and remediation guidance.{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb" class="breadcrumb">
+    <div class="container">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('main.index') }}" class="breadcrumb-link">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('testing.dashboard') }}" class="breadcrumb-link">Testing</a>
+            </li>
+            {% if context.project %}
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('testing.project_results', project_id=context.project.project_id) }}" class="breadcrumb-link">
+                        {{ context.project.name }}
+                    </a>
+                </li>
+            {% endif %}
+            {% if page %}
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('pages.view_page', page_id=page.page_id) }}" class="breadcrumb-link">
+                        {{ page.title or page.url }}
+                    </a>
+                </li>
+            {% endif %}
+            <li class="breadcrumb-item" aria-current="page">
+                <span class="breadcrumb-current">Violation Details</span>
+            </li>
+        </ol>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Violation header -->
+    <header class="violation-header">
+        <div class="violation-title-section">
+            <div class="violation-severity">
+                <span class="severity-badge severity-{{ violation.severity }}">
+                    <svg class="severity-icon" aria-hidden="true" width="16" height="16">
+                        {% if violation.severity == 'critical' %}
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" fill="currentColor"/>
+                            <line x1="15" y1="9" x2="9" y2="15" stroke="white" stroke-width="2"/>
+                            <line x1="9" y1="9" x2="15" y2="15" stroke="white" stroke-width="2"/>
+                        {% elif violation.severity == 'serious' %}
+                            <path d="M10.29 3.86L1.82 18A2 2 0 003.54 21H20.46A2 2 0 0022.18 18L13.71 3.86A2 2 0 0010.29 3.86Z" stroke="currentColor" fill="currentColor"/>
+                            <line x1="12" y1="9" x2="12" y2="13" stroke="white" stroke-width="2"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17" stroke="white" stroke-width="2"/>
+                        {% elif violation.severity == 'moderate' %}
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2"/>
+                        {% else %}
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M9,9 L15,15" stroke="currentColor" stroke-width="2"/>
+                            <path d="M15,9 L9,15" stroke="currentColor" stroke-width="2"/>
+                        {% endif %}
+                    </svg>
+                    {{ violation.severity | title }}
+                </span>
+            </div>
+            <h1 class="violation-title">{{ violation.rule_id }}: {{ violation.description }}</h1>
+            <div class="violation-meta">
+                <span class="violation-rule">Rule: {{ violation.rule_id }}</span>
+                <span class="violation-standard">Standard: WCAG {{ violation.wcag_level }}</span>
+                {% if violation.element_count > 1 %}
+                    <span class="violation-count">{{ violation.element_count }} elements affected</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="violation-actions">
+            <button type="button" class="btn btn-outline btn-sm" onclick="highlightElements()">
+                <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                    <circle cx="11" cy="11" r="8" stroke="currentColor" fill="none" stroke-width="2"/>
+                    <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                Highlight on Page
+            </button>
+            <a href="{{ page.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
+                <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                    <path d="M7 7H17V17" stroke="currentColor" fill="none" stroke-width="2"/>
+                    <path d="M7 17L17 7" stroke="currentColor" fill="none" stroke-width="2"/>
+                </svg>
+                View Page
+            </a>
+        </div>
+    </header>
+
+    <!-- Violation impact -->
+    <section class="impact-section" aria-labelledby="impact-title">
+        <h2 id="impact-title" class="section-title">Impact Assessment</h2>
+        <div class="impact-card">
+            <div class="impact-header">
+                <h3 class="impact-title">User Impact</h3>
+                <span class="impact-level impact-{{ violation.impact_level }}">
+                    {{ violation.impact_level | title }} Impact
+                </span>
+            </div>
+            <p class="impact-description">
+                {{ violation.impact_description }}
+            </p>
+            <div class="impact-details">
+                <div class="impact-detail">
+                    <span class="impact-label">Affected Users:</span>
+                    <span class="impact-value">{{ violation.affected_users | join(', ') }}</span>
+                </div>
+                <div class="impact-detail">
+                    <span class="impact-label">Assistive Technology:</span>
+                    <span class="impact-value">{{ violation.assistive_tech | join(', ') }}</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Element details -->
+    <section class="elements-section" aria-labelledby="elements-title">
+        <h2 id="elements-title" class="section-title">
+            Affected Elements
+            <span class="element-count">({{ violation.elements | length }})</span>
+        </h2>
+        
+        <div class="elements-list">
+            {% for element in violation.elements %}
+                <div class="element-card">
+                    <div class="element-header">
+                        <h3 class="element-title">
+                            Element {{ loop.index }}
+                            {% if element.tag %}
+                                <code class="element-tag">&lt;{{ element.tag }}&gt;</code>
+                            {% endif %}
+                        </h3>
+                        <div class="element-location">
+                            <span class="location-label">Line {{ element.line or '?' }}</span>
+                            {% if element.xpath %}
+                                <button type="button" class="btn btn-ghost btn-xs" onclick="copyXPath('{{ element.xpath }}')">
+                                    <svg class="btn-icon" aria-hidden="true" width="12" height="12">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke="currentColor" fill="none" stroke-width="1"/>
+                                        <path d="M5 15H4A2 2 0 012 13V4A2 2 0 014 2H13A2 2 0 0115 4V5" stroke="currentColor" fill="none" stroke-width="1"/>
+                                    </svg>
+                                    Copy XPath
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if element.html %}
+                        <div class="element-code">
+                            <h4 class="code-title">HTML Source</h4>
+                            <div class="code-container">
+                                <pre class="code-block"><code class="language-html">{{ element.html }}</code></pre>
+                                <button type="button" class="code-copy" onclick="copyToClipboard('{{ element.html | escape }}')">
+                                    <svg aria-hidden="true" width="16" height="16">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke="currentColor" fill="none" stroke-width="1"/>
+                                        <path d="M5 15H4A2 2 0 012 13V4A2 2 0 014 2H13A2 2 0 0115 4V5" stroke="currentColor" fill="none" stroke-width="1"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    {% if element.context %}
+                        <div class="element-context">
+                            <h4 class="context-title">Context Information</h4>
+                            <ul class="context-list">
+                                {% for key, value in element.context.items() %}
+                                    <li class="context-item">
+                                        <span class="context-key">{{ key | replace('_', ' ') | title }}:</span>
+                                        <span class="context-value">{{ value }}</span>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Fix recommendations -->
+    <section class="fix-section" aria-labelledby="fix-title">
+        <h2 id="fix-title" class="section-title">How to Fix</h2>
+        
+        <div class="fix-steps">
+            <h3 class="fix-steps-title">Recommended Solution</h3>
+            <ol class="fix-list">
+                {% for step in violation.fix_steps %}
+                    <li class="fix-step">
+                        <div class="step-content">
+                            <p class="step-description">{{ step.description }}</p>
+                            {% if step.code_example %}
+                                <div class="step-code">
+                                    <h4 class="code-title">Example Code</h4>
+                                    <div class="code-container">
+                                        <pre class="code-block"><code class="language-html">{{ step.code_example }}</code></pre>
+                                        <button type="button" class="code-copy" onclick="copyToClipboard('{{ step.code_example | escape }}')">
+                                            <svg aria-hidden="true" width="16" height="16">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke="currentColor" fill="none" stroke-width="1"/>
+                                                <path d="M5 15H4A2 2 0 012 13V4A2 2 0 014 2H13A2 2 0 0115 4V5" stroke="currentColor" fill="none" stroke-width="1"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </li>
+                {% endfor %}
+            </ol>
+        </div>
+
+        {% if violation.alternative_solutions %}
+            <div class="alternative-fixes">
+                <h3 class="alternatives-title">Alternative Solutions</h3>
+                <div class="alternatives-list">
+                    {% for solution in violation.alternative_solutions %}
+                        <div class="alternative-card">
+                            <h4 class="alternative-title">{{ solution.title }}</h4>
+                            <p class="alternative-description">{{ solution.description }}</p>
+                            {% if solution.pros %}
+                                <div class="alternative-pros">
+                                    <span class="pros-label">Pros:</span>
+                                    <ul class="pros-list">
+                                        {% for pro in solution.pros %}
+                                            <li class="pro-item">{{ pro }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            {% endif %}
+                            {% if solution.cons %}
+                                <div class="alternative-cons">
+                                    <span class="cons-label">Cons:</span>
+                                    <ul class="cons-list">
+                                        {% for con in solution.cons %}
+                                            <li class="con-item">{{ con }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+    </section>
+
+    <!-- Testing guide -->
+    <section class="testing-section" aria-labelledby="testing-title">
+        <h2 id="testing-title" class="section-title">Testing & Verification</h2>
+        
+        <div class="testing-guide">
+            <h3 class="testing-guide-title">How to Test This Fix</h3>
+            <div class="testing-methods">
+                {% if violation.testing_methods.manual %}
+                    <div class="testing-method">
+                        <h4 class="method-title">
+                            <svg class="method-icon" aria-hidden="true" width="20" height="20">
+                                <path d="M17 21V19A4 4 0 0013 15H5A4 4 0 001 19V21" stroke="currentColor" fill="none" stroke-width="2"/>
+                                <circle cx="9" cy="7" r="4" stroke="currentColor" fill="none" stroke-width="2"/>
+                                <path d="M23 21V19A4 4 0 0020.28 15.4A7.17 7.17 0 0018 15" stroke="currentColor" fill="none" stroke-width="2"/>
+                                <path d="M16 3.13A4 4 0 0118 7A4 4 0 0116 10.87" stroke="currentColor" fill="none" stroke-width="2"/>
+                            </svg>
+                            Manual Testing
+                        </h4>
+                        <ol class="method-steps">
+                            {% for step in violation.testing_methods.manual %}
+                                <li class="method-step">{{ step }}</li>
+                            {% endfor %}
+                        </ol>
+                    </div>
+                {% endif %}
+
+                {% if violation.testing_methods.screen_reader %}
+                    <div class="testing-method">
+                        <h4 class="method-title">
+                            <svg class="method-icon" aria-hidden="true" width="20" height="20">
+                                <path d="M1 3A1 1 0 012 2H22A1 1 0 0123 3V15A1 1 0 0122 16H2A1 1 0 011 15V3Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                <polyline points="8,21 12,17 16,21" stroke="currentColor" fill="none" stroke-width="2"/>
+                            </svg>
+                            Screen Reader Testing
+                        </h4>
+                        <ol class="method-steps">
+                            {% for step in violation.testing_methods.screen_reader %}
+                                <li class="method-step">{{ step }}</li>
+                            {% endfor %}
+                        </ol>
+                    </div>
+                {% endif %}
+
+                {% if violation.testing_methods.keyboard %}
+                    <div class="testing-method">
+                        <h4 class="method-title">
+                            <svg class="method-icon" aria-hidden="true" width="20" height="20">
+                                <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" fill="none" stroke-width="2"/>
+                                <path d="M6 8H6.01" stroke="currentColor" stroke-width="2"/>
+                                <path d="M10 8H10.01" stroke="currentColor" stroke-width="2"/>
+                                <path d="M14 8H14.01" stroke="currentColor" stroke-width="2"/>
+                                <path d="M18 8H18.01" stroke="currentColor" stroke-width="2"/>
+                                <path d="M8 12H16" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            Keyboard Testing
+                        </h4>
+                        <ol class="method-steps">
+                            {% for step in violation.testing_methods.keyboard %}
+                                <li class="method-step">{{ step }}</li>
+                            {% endfor %}
+                        </ol>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Resources -->
+    <section class="resources-section" aria-labelledby="resources-title">
+        <h2 id="resources-title" class="section-title">Additional Resources</h2>
+        
+        <div class="resources-grid">
+            {% if violation.wcag_reference %}
+                <div class="resource-card">
+                    <h3 class="resource-title">WCAG Guidelines</h3>
+                    <p class="resource-description">
+                        Official WCAG documentation for this accessibility requirement.
+                    </p>
+                    <a href="{{ violation.wcag_reference }}" target="_blank" rel="noopener noreferrer" class="resource-link">
+                        View WCAG {{ violation.wcag_level }} Guidelines
+                        <svg class="external-icon" aria-hidden="true" width="12" height="12">
+                            <path d="M7 7H17V17" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M7 17L17 7" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                    </a>
+                </div>
+            {% endif %}
+
+            {% if violation.mdn_reference %}
+                <div class="resource-card">
+                    <h3 class="resource-title">MDN Documentation</h3>
+                    <p class="resource-description">
+                        Technical documentation and examples from Mozilla Developer Network.
+                    </p>
+                    <a href="{{ violation.mdn_reference }}" target="_blank" rel="noopener noreferrer" class="resource-link">
+                        View MDN Docs
+                        <svg class="external-icon" aria-hidden="true" width="12" height="12">
+                            <path d="M7 7H17V17" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M7 17L17 7" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                    </a>
+                </div>
+            {% endif %}
+
+            <div class="resource-card">
+                <h3 class="resource-title">Accessibility Testing Tools</h3>
+                <p class="resource-description">
+                    Recommended tools for ongoing accessibility testing and monitoring.
+                </p>
+                <div class="tool-links">
+                    <a href="https://www.deque.com/axe/" target="_blank" rel="noopener noreferrer" class="tool-link">
+                        axe DevTools
+                    </a>
+                    <a href="https://wave.webaim.org/" target="_blank" rel="noopener noreferrer" class="tool-link">
+                        WAVE
+                    </a>
+                    <a href="https://www.nvaccess.org/download/" target="_blank" rel="noopener noreferrer" class="tool-link">
+                        NVDA Screen Reader
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Violation header */
+.violation-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-2xl);
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+@media (max-width: 767px) {
+    .violation-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+.violation-severity {
+    margin-bottom: var(--spacing-sm);
+}
+
+.severity-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--border-radius-full);
+    white-space: nowrap;
+}
+
+.severity-critical {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.severity-serious {
+    background-color: #fed7aa;
+    color: #9a3412;
+    border: 1px solid #fdba74;
+}
+
+.severity-moderate {
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fbbf24;
+}
+
+.severity-minor {
+    background-color: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+.severity-icon {
+    flex-shrink: 0;
+}
+
+.violation-title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+    line-height: var(--line-height-tight);
+}
+
+.violation-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.violation-rule,
+.violation-standard,
+.violation-count {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    background-color: var(--color-bg-secondary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+}
+
+.violation-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+    .violation-actions .btn {
+        flex: 1;
+    }
+}
+
+/* Section titles */
+.section-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.element-count {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-normal);
+    color: var(--color-text-muted);
+}
+
+/* Impact section */
+.impact-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.impact-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+}
+
+.impact-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+}
+
+.impact-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.impact-level {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--border-radius-sm);
+}
+
+.impact-high {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.impact-medium {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.impact-low {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.impact-description {
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-md);
+}
+
+.impact-details {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.impact-detail {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.impact-label {
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    min-width: 140px;
+}
+
+.impact-value {
+    color: var(--color-text-secondary);
+}
+
+/* Elements section */
+.elements-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.elements-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.element-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+}
+
+.element-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-lg);
+    background-color: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.element-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.element-tag {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    background-color: var(--color-bg-primary);
+    padding: var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--color-border-light);
+}
+
+.element-location {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.location-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+/* Code blocks */
+.element-code,
+.step-code {
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.element-code:last-child,
+.step-code:last-child {
+    border-bottom: none;
+}
+
+.code-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.code-container {
+    position: relative;
+}
+
+.code-block {
+    background-color: #f8fafc;
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-md);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-relaxed);
+    overflow-x: auto;
+    margin: 0;
+}
+
+.code-copy {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-xs);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.code-copy:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-secondary);
+}
+
+/* Context information */
+.element-context {
+    padding: var(--spacing-lg);
+}
+
+.context-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.context-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.context-item {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.context-key {
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    min-width: 120px;
+}
+
+.context-value {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+}
+
+/* Fix section */
+.fix-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.fix-steps {
+    margin-bottom: var(--spacing-xl);
+}
+
+.fix-steps-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+}
+
+.fix-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    padding-left: var(--spacing-lg);
+}
+
+.fix-step {
+    padding-left: var(--spacing-md);
+}
+
+.step-content {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+}
+
+.step-description {
+    padding: var(--spacing-lg);
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+}
+
+/* Alternative solutions */
+.alternative-fixes {
+    margin-top: var(--spacing-xl);
+}
+
+.alternatives-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+}
+
+.alternatives-list {
+    display: grid;
+    gap: var(--spacing-lg);
+}
+
+.alternative-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+}
+
+.alternative-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.alternative-description {
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-md);
+}
+
+.alternative-pros,
+.alternative-cons {
+    margin-bottom: var(--spacing-sm);
+}
+
+.pros-label,
+.cons-label {
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-xs);
+    display: block;
+}
+
+.pros-list,
+.cons-list {
+    margin: 0;
+    padding-left: var(--spacing-lg);
+}
+
+.pro-item,
+.con-item {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-relaxed);
+}
+
+/* Testing section */
+.testing-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.testing-guide-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+}
+
+.testing-methods {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.testing-method {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+}
+
+.method-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-md);
+    margin-top: 0;
+}
+
+.method-icon {
+    color: var(--color-primary);
+    flex-shrink: 0;
+}
+
+.method-steps {
+    padding-left: var(--spacing-lg);
+    margin: 0;
+}
+
+.method-step {
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-sm);
+}
+
+/* Resources section */
+.resources-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.resources-grid {
+    display: grid;
+    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.resource-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+}
+
+.resource-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.resource-description {
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-md);
+}
+
+.resource-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: var(--font-weight-medium);
+}
+
+.resource-link:hover,
+.resource-link:focus {
+    text-decoration: underline;
+}
+
+.external-icon {
+    flex-shrink: 0;
+}
+
+.tool-links {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.tool-link {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+}
+
+.tool-link:hover,
+.tool-link:focus {
+    text-decoration: underline;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('Code copied to clipboard');
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+            fallbackCopyToClipboard(text);
+        });
+    } else {
+        fallbackCopyToClipboard(text);
+    }
+}
+
+function fallbackCopyToClipboard(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+        showToast('Code copied to clipboard');
+    } catch (err) {
+        console.error('Fallback: Failed to copy text: ', err);
+        showToast('Failed to copy code');
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+function copyXPath(xpath) {
+    copyToClipboard(xpath);
+    showToast('XPath copied to clipboard');
+}
+
+function showToast(message) {
+    // Create toast notification
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: var(--color-success);
+        color: white;
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-radius: var(--border-radius-md);
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-medium);
+        z-index: 1000;
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: all 0.3s ease;
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+    }, 10);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }, 3000);
+}
+
+function highlightElements() {
+    // This would integrate with the original page to highlight problematic elements
+    // For now, show a message about the feature
+    alert('Element highlighting would open the original page with problematic elements highlighted. This feature requires integration with the page testing system.');
+}
+
+// Syntax highlighting for code blocks (basic)
+document.addEventListener('DOMContentLoaded', function() {
+    const codeBlocks = document.querySelectorAll('.code-block code');
+    codeBlocks.forEach(block => {
+        // Basic HTML syntax highlighting
+        if (block.classList.contains('language-html')) {
+            const html = block.innerHTML;
+            const highlighted = html
+                .replace(/(&lt;[^&]*&gt;)/g, '<span style="color: #0066cc;">$1</span>')
+                .replace(/(="[^"]*")/g, '<span style="color: #009900;">$1</span>')
+                .replace(/(\w+)=/g, '<span style="color: #cc6600;">$1</span>=');
+            block.innerHTML = highlighted;
+        }
+    });
+});
+</script>
+{% endblock %}

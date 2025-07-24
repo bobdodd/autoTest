@@ -1,0 +1,551 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Add Website - {{ project.name }} - {{ app_name }}{% endblock %}
+
+{% block meta_description %}Add a new website to {{ project.name }} for comprehensive accessibility testing and monitoring.{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb" class="breadcrumb">
+    <div class="container">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('main.index') }}" class="breadcrumb-link">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.list_projects') }}" class="breadcrumb-link">Projects</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.view_project', project_id=project.project_id) }}" class="breadcrumb-link">{{ project.name }}</a>
+            </li>
+            <li class="breadcrumb-item" aria-current="page">
+                <span class="breadcrumb-current">Add Website</span>
+            </li>
+        </ol>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Page header -->
+    <header class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">Add Website</h1>
+            <p class="page-description">
+                Configure a new website for accessibility testing in <strong>{{ project.name }}</strong>.
+                The system will discover pages and run comprehensive WCAG compliance checks.
+            </p>
+        </div>
+    </header>
+    
+    <!-- Website creation form -->
+    <div class="content-section">
+        <div class="form-container">
+            <form method="post" class="website-form" novalidate>
+                <!-- Basic Information -->
+                <fieldset class="form-fieldset">
+                    <legend class="form-legend">Website Information</legend>
+                    
+                    <div class="form-group">
+                        <label for="name" class="form-label required">
+                            Website Name
+                            <span class="required-indicator" aria-label="Required field">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="name" 
+                            name="name" 
+                            class="form-input"
+                            value="{{ form_data.name if form_data else '' }}"
+                            required
+                            maxlength="100"
+                            aria-describedby="name-help"
+                            autocomplete="off"
+                        >
+                        <div id="name-help" class="form-help">
+                            A descriptive name to identify this website (e.g., "Main Company Website", "Customer Portal").
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="base_url" class="form-label required">
+                            Base URL
+                            <span class="required-indicator" aria-label="Required field">*</span>
+                        </label>
+                        <input 
+                            type="url" 
+                            id="base_url" 
+                            name="base_url" 
+                            class="form-input"
+                            value="{{ form_data.base_url if form_data else '' }}"
+                            required
+                            placeholder="https://example.com"
+                            aria-describedby="base_url-help"
+                        >
+                        <div id="base_url-help" class="form-help">
+                            The main URL of the website. Page discovery will start from this URL.
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description" class="form-label">
+                            Description
+                            <span class="optional-indicator">(Optional)</span>
+                        </label>
+                        <textarea 
+                            id="description" 
+                            name="description" 
+                            class="form-textarea"
+                            rows="3"
+                            maxlength="500"
+                            aria-describedby="description-help"
+                        >{{ form_data.description if form_data else '' }}</textarea>
+                        <div id="description-help" class="form-help">
+                            Additional context about this website, testing objectives, or special considerations.
+                        </div>
+                    </div>
+                </fieldset>
+                
+                <!-- Scraping Configuration -->
+                <fieldset class="form-fieldset">
+                    <legend class="form-legend">Page Discovery Settings</legend>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="max_depth" class="form-label">
+                                Maximum Crawl Depth
+                            </label>
+                            <select id="max_depth" name="max_depth" class="form-select" aria-describedby="max_depth-help">
+                                <option value="1" {{ 'selected' if form_data and form_data.max_depth == '1' else '' }}>1 level (homepage only)</option>
+                                <option value="2" {{ 'selected' if form_data and form_data.max_depth == '2' else '' }}>2 levels</option>
+                                <option value="3" {{ 'selected' if (not form_data) or form_data.max_depth == '3' else '' }}>3 levels (recommended)</option>
+                                <option value="4" {{ 'selected' if form_data and form_data.max_depth == '4' else '' }}>4 levels</option>
+                                <option value="5" {{ 'selected' if form_data and form_data.max_depth == '5' else '' }}>5 levels (deep crawl)</option>
+                            </select>
+                            <div id="max_depth-help" class="form-help">
+                                How many levels deep to follow links from the base URL.
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="max_pages" class="form-label">
+                                Maximum Pages
+                            </label>
+                            <select id="max_pages" name="max_pages" class="form-select" aria-describedby="max_pages-help">
+                                <option value="25" {{ 'selected' if form_data and form_data.max_pages == '25' else '' }}>25 pages</option>
+                                <option value="50" {{ 'selected' if form_data and form_data.max_pages == '50' else '' }}>50 pages</option>
+                                <option value="100" {{ 'selected' if (not form_data) or form_data.max_pages == '100' else '' }}>100 pages (recommended)</option>
+                                <option value="250" {{ 'selected' if form_data and form_data.max_pages == '250' else '' }}>250 pages</option>
+                                <option value="500" {{ 'selected' if form_data and form_data.max_pages == '500' else '' }}>500 pages</option>
+                                <option value="1000" {{ 'selected' if form_data and form_data.max_pages == '1000' else '' }}>1000 pages</option>
+                            </select>
+                            <div id="max_pages-help" class="form-help">
+                                Maximum number of pages to discover and test.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <fieldset class="checkbox-group">
+                            <legend class="checkbox-group-legend">Additional Options</legend>
+                            
+                            <div class="checkbox-item">
+                                <input 
+                                    type="checkbox" 
+                                    id="respect_robots" 
+                                    name="respect_robots" 
+                                    class="form-checkbox"
+                                    {{ 'checked' if (not form_data) or form_data.respect_robots else '' }}
+                                >
+                                <label for="respect_robots" class="checkbox-label">
+                                    Respect robots.txt
+                                    <span class="checkbox-description">Follow the website's robots.txt restrictions (recommended)</span>
+                                </label>
+                            </div>
+                            
+                            <div class="checkbox-item">
+                                <input 
+                                    type="checkbox" 
+                                    id="follow_external" 
+                                    name="follow_external" 
+                                    class="form-checkbox"
+                                    {{ 'checked' if form_data and form_data.follow_external else '' }}
+                                >
+                                <label for="follow_external" class="checkbox-label">
+                                    Follow external links
+                                    <span class="checkbox-description">Include links to other domains (use with caution)</span>
+                                </label>
+                            </div>
+                        </fieldset>
+                    </div>
+                </fieldset>
+                
+                <!-- Form actions -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                            <path d="M19 21H5A2 2 0 013 19V5A2 2 0 015 3H16L21 8V19A2 2 0 0119 21Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M17 21V13H7V21" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M7 3V8H15" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        Add Website
+                    </button>
+                    <a href="{{ url_for('projects.view_project', project_id=project.project_id) }}" class="btn btn-outline">
+                        <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                            <line x1="19" y1="12" x2="5" y2="12" stroke="currentColor" stroke-width="2"/>
+                            <polyline points="12,19 5,12 12,5" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Help sidebar -->
+        <aside class="help-sidebar" aria-labelledby="help-title">
+            <h2 id="help-title" class="help-title">Adding Websites</h2>
+            
+            <div class="help-section">
+                <h3 class="help-section-title">Page Discovery</h3>
+                <p class="help-text">
+                    AutoTest will automatically crawl your website starting from the base URL to discover all accessible pages.
+                </p>
+            </div>
+            
+            <div class="help-section">
+                <h3 class="help-section-title">Crawl Depth</h3>
+                <ul class="help-list">
+                    <li><strong>1 level:</strong> Only the homepage</li>
+                    <li><strong>2-3 levels:</strong> Most main pages (recommended)</li>
+                    <li><strong>4+ levels:</strong> Deep site exploration</li>
+                </ul>
+            </div>
+            
+            <div class="help-section">
+                <h3 class="help-section-title">Best Practices</h3>
+                <ul class="help-list">
+                    <li>Start with fewer pages for initial testing</li>
+                    <li>Use descriptive names for easy identification</li>
+                    <li>Keep robots.txt enabled unless necessary</li>
+                    <li>Be cautious with external link following</li>
+                </ul>
+            </div>
+            
+            <div class="help-section">
+                <h3 class="help-section-title">Next Steps</h3>
+                <p class="help-text">
+                    After adding the website, you can:
+                </p>
+                <ul class="help-list">
+                    <li>Start page discovery immediately</li>
+                    <li>Configure accessibility rules</li>
+                    <li>Run comprehensive testing</li>
+                    <li>Monitor results over time</li>
+                </ul>
+            </div>
+        </aside>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Form container */
+.form-container {
+    max-width: 700px;
+}
+
+.website-form {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Fieldsets */
+.form-fieldset {
+    border: none;
+    margin: 0 0 var(--spacing-2xl) 0;
+    padding: 0;
+}
+
+.form-fieldset:last-of-type {
+    margin-bottom: 0;
+}
+
+.form-legend {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    padding: 0;
+}
+
+/* Form groups and rows */
+.form-group {
+    margin-bottom: var(--spacing-lg);
+}
+
+.form-row {
+    display: grid;
+    gap: var(--spacing-lg);
+    grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 767px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Form inputs */
+.form-label {
+    display: block;
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.required-indicator {
+    color: var(--color-danger);
+    font-weight: var(--font-weight-bold);
+}
+
+.optional-indicator {
+    color: var(--color-text-muted);
+    font-weight: var(--font-weight-normal);
+}
+
+.form-input,
+.form-textarea,
+.form-select {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-family: inherit;
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-medium);
+    border-radius: var(--border-radius-md);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+}
+
+.form-help {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin-top: var(--spacing-xs);
+    line-height: var(--line-height-relaxed);
+}
+
+/* Checkbox groups */
+.checkbox-group {
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+.checkbox-group-legend {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-md);
+    padding: 0;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.checkbox-item:last-child {
+    margin-bottom: 0;
+}
+
+.form-checkbox {
+    margin-top: var(--spacing-xs);
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    accent-color: var(--color-primary);
+}
+
+.checkbox-label {
+    flex: 1;
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    cursor: pointer;
+}
+
+.checkbox-description {
+    display: block;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-normal);
+    color: var(--color-text-muted);
+    margin-top: var(--spacing-xs);
+    line-height: var(--line-height-relaxed);
+}
+
+/* Form actions */
+.form-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border-light);
+}
+
+@media (max-width: 767px) {
+    .form-actions {
+        flex-direction: column;
+    }
+}
+
+/* Content layout */
+.content-section {
+    display: grid;
+    gap: var(--spacing-2xl);
+    grid-template-columns: 1fr 300px;
+    align-items: start;
+}
+
+@media (max-width: 1023px) {
+    .content-section {
+        grid-template-columns: 1fr;
+    }
+    
+    .help-sidebar {
+        order: -1;
+    }
+}
+
+/* Help sidebar - inherit styles from projects/create.html */
+.help-sidebar {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    position: sticky;
+    top: var(--spacing-xl);
+}
+
+.help-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+}
+
+.help-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.help-section:last-of-type {
+    margin-bottom: 0;
+}
+
+.help-section-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.help-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-sm);
+}
+
+.help-text:last-child {
+    margin-bottom: 0;
+}
+
+.help-list {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+}
+
+.help-list li {
+    margin-bottom: var(--spacing-xs);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// URL validation and formatting
+document.getElementById('base_url').addEventListener('blur', function() {
+    let url = this.value.trim();
+    if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+        // Auto-add https:// if no protocol specified
+        this.value = 'https://' + url;
+    }
+});
+
+// Form validation
+document.querySelector('.website-form').addEventListener('submit', function(e) {
+    const name = document.getElementById('name').value.trim();
+    const baseUrl = document.getElementById('base_url').value.trim();
+    
+    let hasErrors = false;
+    
+    // Clear previous error states
+    document.querySelectorAll('.form-input, .form-textarea, .form-select').forEach(input => {
+        input.classList.remove('error');
+    });
+    
+    // Validate required fields
+    if (!name) {
+        document.getElementById('name').classList.add('error');
+        hasErrors = true;
+    }
+    
+    if (!baseUrl) {
+        document.getElementById('base_url').classList.add('error');
+        hasErrors = true;
+    } else if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+        document.getElementById('base_url').classList.add('error');
+        hasErrors = true;
+    }
+    
+    if (hasErrors) {
+        e.preventDefault();
+        // Focus on first error field
+        const firstError = document.querySelector('.form-input.error, .form-textarea.error, .form-select.error');
+        if (firstError) {
+            firstError.focus();
+        }
+    }
+});
+
+// Add error state styles
+const style = document.createElement('style');
+style.textContent = `
+    .form-input.error,
+    .form-textarea.error,
+    .form-select.error {
+        border-color: var(--color-danger);
+        box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2);
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

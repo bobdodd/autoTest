@@ -1,0 +1,891 @@
+{% extends "base/layout.html" %}
+
+{% block title %}{{ website.name }} - {{ project.name }} - {{ app_name }}{% endblock %}
+
+{% block meta_description %}View website details for {{ website.name }}, including discovered pages, test results, and accessibility insights.{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb" class="breadcrumb">
+    <div class="container">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('main.index') }}" class="breadcrumb-link">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.list_projects') }}" class="breadcrumb-link">Projects</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.view_project', project_id=project.project_id) }}" class="breadcrumb-link">{{ project.name }}</a>
+            </li>
+            <li class="breadcrumb-item" aria-current="page">
+                <span class="breadcrumb-current">{{ website.name }}</span>
+            </li>
+        </ol>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Website header -->
+    <header class="website-header">
+        <div class="website-header-content">
+            <div class="website-title-section">
+                <h1 class="website-title">{{ website.name }}</h1>
+                <div class="website-url">
+                    <a href="{{ website.base_url }}" target="_blank" rel="noopener noreferrer" class="external-link">
+                        {{ website.base_url }}
+                        <svg class="external-icon" aria-hidden="true" width="16" height="16">
+                            <path d="M7 7H17V17" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M7 17L17 7" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        <span class="sr-only">(opens in new tab)</span>
+                    </a>
+                </div>
+                {% if website.description %}
+                    <p class="website-description">{{ website.description }}</p>
+                {% endif %}
+            </div>
+            <div class="website-actions">
+                <button type="button" class="btn btn-outline btn-sm" onclick="scanWebsite()" id="scan-btn">
+                    <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                        <circle cx="11" cy="11" r="8" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Scan Pages
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="testWebsite()" id="test-btn">
+                    <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                        <polygon points="5,3 19,12 5,21" fill="currentColor"/>
+                    </svg>
+                    Run Tests
+                </button>
+                <a href="{{ url_for('websites.edit_website', project_id=project.project_id, website_id=website.website_id) }}" class="btn btn-ghost btn-sm">
+                    <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                        <path d="M11 4H4A2 2 0 002 6V18A2 2 0 004 20H16A2 2 0 0018 18V11" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <path d="M18.5 2.5A2.121 2.121 0 0016 5L11 10V13H14L19 8A2.121 2.121 0 0021.5 5.5L18.5 2.5Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                    Edit
+                </a>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Website statistics -->
+    <section class="stats-section" aria-labelledby="stats-title">
+        <h2 id="stats-title" class="section-title">Overview</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Total Pages</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <path d="M14 2H6A2 2 0 004 4V20A2 2 0 006 22H18A2 2 0 0020 20V8L14 2Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <polyline points="14,2 14,8 20,8" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value">{{ stats.total_pages }}</div>
+                <div class="stat-label">discovered</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Scanned</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <circle cx="11" cy="11" r="8" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value">{{ stats.scanned_pages }}</div>
+                <div class="stat-label">{{ stats.scanned_pages | pluralize('page', 'pages') }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Tested</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <path d="M22 11.08V12A10 10 0 1112 2A10 10 0 0122 11.08Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value">{{ stats.tested_pages }}</div>
+                <div class="stat-label">{{ stats.tested_pages | pluralize('page', 'pages') }}</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Issues</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <path d="M10.29 3.86L1.82 18A2 2 0 003.54 21H20.46A2 2 0 0022.18 18L13.71 3.86A2 2 0 0010.29 3.86Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value">{{ stats.total_issues }}</div>
+                <div class="stat-label">found</div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Pages section -->
+    <section class="pages-section" aria-labelledby="pages-title">
+        <div class="section-header">
+            <h2 id="pages-title" class="section-title">Discovered Pages</h2>
+            <div class="section-actions">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addPage()">
+                    <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                        <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/>
+                        <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Add Page Manually
+                </button>
+            </div>
+        </div>
+        
+        {% if pages %}
+            <div class="pages-table-container">
+                <table class="pages-table" role="table">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="page-title-header">Page</th>
+                            <th scope="col" class="page-status-header">Status</th>
+                            <th scope="col" class="page-issues-header">Issues</th>
+                            <th scope="col" class="page-updated-header">Last Updated</th>
+                            <th scope="col" class="page-actions-header">
+                                <span class="sr-only">Actions</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for page in pages %}
+                            <tr class="page-row">
+                                <td class="page-title-cell">
+                                    <div class="page-info">
+                                        <a href="{{ page.url }}" target="_blank" rel="noopener noreferrer" class="page-link">
+                                            {{ page.title or page.url | truncate(50) }}
+                                            <svg class="external-icon" aria-hidden="true" width="12" height="12">
+                                                <path d="M7 7H17V17" stroke="currentColor" fill="none" stroke-width="2"/>
+                                                <path d="M7 17L17 7" stroke="currentColor" fill="none" stroke-width="2"/>
+                                            </svg>
+                                        </a>
+                                        <div class="page-url">{{ page.url }}</div>
+                                    </div>
+                                </td>
+                                <td class="page-status-cell">
+                                    {% if page.last_test_date %}
+                                        <span class="status-badge status-tested">Tested</span>
+                                    {% elif page.last_scan_date %}
+                                        <span class="status-badge status-scanned">Scanned</span>
+                                    {% else %}
+                                        <span class="status-badge status-discovered">Discovered</span>
+                                    {% endif %}
+                                </td>
+                                <td class="page-issues-cell">
+                                    {% set issue_count = page.issues | length if page.issues else 0 %}
+                                    {% if issue_count > 0 %}
+                                        <span class="issue-count issue-count-has-issues">{{ issue_count }}</span>
+                                    {% else %}
+                                        <span class="issue-count issue-count-none">0</span>
+                                    {% endif %}
+                                </td>
+                                <td class="page-updated-cell">
+                                    {% if page.last_test_date %}
+                                        <time datetime="{{ page.last_test_date }}">
+                                            {{ page.last_test_date | format_datetime }}
+                                        </time>
+                                    {% elif page.last_scan_date %}
+                                        <time datetime="{{ page.last_scan_date }}">
+                                            {{ page.last_scan_date | format_datetime }}
+                                        </time>
+                                    {% else %}
+                                        <span class="text-muted">Never</span>
+                                    {% endif %}
+                                </td>
+                                <td class="page-actions-cell">
+                                    <div class="page-actions">
+                                        <button type="button" class="btn btn-ghost btn-xs" onclick="testPage('{{ page.page_id }}')">
+                                            <svg class="btn-icon" aria-hidden="true" width="14" height="14">
+                                                <polygon points="5,3 19,12 5,21" fill="currentColor"/>
+                                            </svg>
+                                            Test
+                                        </button>
+                                        {% if page.issues and page.issues | length > 0 %}
+                                            <a href="{{ url_for('pages.view_page', project_id=project.project_id, website_id=website.website_id, page_id=page.page_id) }}" class="btn btn-ghost btn-xs">
+                                                <svg class="btn-icon" aria-hidden="true" width="14" height="14">
+                                                    <path d="M1 12S5 4 12 4S23 12 23 12S19 20 12 20S1 12 1 12Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                                    <circle cx="12" cy="12" r="3" stroke="currentColor" fill="none" stroke-width="2"/>
+                                                </svg>
+                                                View
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <svg aria-hidden="true" width="48" height="48">
+                        <path d="M14 2H6A2 2 0 004 4V20A2 2 0 006 22H18A2 2 0 0020 20V8L14 2Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <polyline points="14,2 14,8 20,8" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h3 class="empty-title">No pages discovered yet</h3>
+                <p class="empty-description">
+                    Start by scanning the website to discover pages automatically, or add pages manually.
+                </p>
+                <div class="empty-actions">
+                    <button type="button" class="btn btn-primary" onclick="scanWebsite()">
+                        <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                            <circle cx="11" cy="11" r="8" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        Scan Website
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="addPage()">
+                        <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                            <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/>
+                            <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        Add Page Manually
+                    </button>
+                </div>
+            </div>
+        {% endif %}
+    </section>
+    
+    <!-- Recent activity -->
+    {% if recent_tests %}
+        <section class="activity-section" aria-labelledby="activity-title">
+            <h2 id="activity-title" class="section-title">Recent Test Results</h2>
+            <div class="activity-list">
+                {% for test in recent_tests %}
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            {% if test.status == 'completed' %}
+                                <svg aria-hidden="true" width="16" height="16">
+                                    <path d="M22 11.08V12A10 10 0 1112 2A10 10 0 0122 11.08Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                    <polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" fill="none" stroke-width="2"/>
+                                </svg>
+                            {% else %}
+                                <svg aria-hidden="true" width="16" height="16">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                                    <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            {% endif %}
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-text">{{ test.description }}</div>
+                            <time datetime="{{ test.timestamp }}" class="activity-time">
+                                {{ test.timestamp | format_datetime }}
+                            </time>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+    
+    <!-- Website configuration -->
+    <section class="config-section" aria-labelledby="config-title">
+        <h2 id="config-title" class="section-title">Configuration</h2>
+        <div class="config-grid">
+            <div class="config-item">
+                <dt class="config-label">Max Crawl Depth</dt>
+                <dd class="config-value">{{ website.scraping_config.max_depth }} levels</dd>
+            </div>
+            
+            <div class="config-item">
+                <dt class="config-label">Max Pages</dt>
+                <dd class="config-value">{{ website.scraping_config.max_pages }} pages</dd>
+            </div>
+            
+            <div class="config-item">
+                <dt class="config-label">Robots.txt</dt>
+                <dd class="config-value">
+                    {% if website.scraping_config.respect_robots_txt %}
+                        <span class="config-enabled">Enabled</span>
+                    {% else %}
+                        <span class="config-disabled">Disabled</span>
+                    {% endif %}
+                </dd>
+            </div>
+            
+            <div class="config-item">
+                <dt class="config-label">External Links</dt>
+                <dd class="config-value">
+                    {% if website.scraping_config.follow_external_links %}
+                        <span class="config-enabled">Enabled</span>
+                    {% else %}
+                        <span class="config-disabled">Disabled</span>
+                    {% endif %}
+                </dd>
+            </div>
+            
+            <div class="config-item">
+                <dt class="config-label">Created</dt>
+                <dd class="config-value">
+                    <time datetime="{{ website.created_date }}">
+                        {{ website.created_date | format_datetime }}
+                    </time>
+                </dd>
+            </div>
+            
+            {% if website.last_scan_date %}
+                <div class="config-item">
+                    <dt class="config-label">Last Scan</dt>
+                    <dd class="config-value">
+                        <time datetime="{{ website.last_scan_date }}">
+                            {{ website.last_scan_date | format_datetime }}
+                        </time>
+                    </dd>
+                </div>
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Website header */
+.website-header {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+    margin-bottom: var(--spacing-2xl);
+}
+
+.website-header-content {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-lg);
+}
+
+@media (max-width: 767px) {
+    .website-header-content {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+.website-title {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.website-url {
+    margin-bottom: var(--spacing-sm);
+}
+
+.external-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-base);
+    font-family: var(--font-family-mono);
+}
+
+.external-link:hover,
+.external-link:focus {
+    text-decoration: underline;
+}
+
+.external-icon {
+    flex-shrink: 0;
+}
+
+.website-description {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin: 0;
+}
+
+.website-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+    .website-actions {
+        justify-content: stretch;
+    }
+    
+    .website-actions .btn {
+        flex: 1;
+    }
+}
+
+/* Statistics - reuse from project detail */
+.stats-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.section-title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+}
+
+.stats-grid {
+    display: grid;
+    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.stat-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    text-align: center;
+}
+
+.stat-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.stat-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-icon {
+    color: var(--color-primary);
+}
+
+.stat-value {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.stat-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+/* Section headers */
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-lg);
+}
+
+@media (max-width: 767px) {
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-md);
+    }
+}
+
+/* Pages table */
+.pages-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.pages-table-container {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    overflow-x: auto;
+}
+
+.pages-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.pages-table th,
+.pages-table td {
+    padding: var(--spacing-md);
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.pages-table th {
+    background-color: var(--color-bg-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.pages-table tr:last-child td {
+    border-bottom: none;
+}
+
+.page-info {
+    min-width: 300px;
+}
+
+.page-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--color-text-primary);
+    text-decoration: none;
+    font-weight: var(--font-weight-medium);
+    margin-bottom: var(--spacing-xs);
+}
+
+.page-link:hover,
+.page-link:focus {
+    color: var(--color-primary);
+    text-decoration: underline;
+}
+
+.page-url {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    font-family: var(--font-family-mono);
+    word-break: break-all;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--border-radius-full);
+    white-space: nowrap;
+}
+
+.status-tested {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.status-scanned {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.status-discovered {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    border: 1px solid #dee2e6;
+}
+
+.issue-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    border-radius: var(--border-radius-full);
+}
+
+.issue-count-has-issues {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.issue-count-none {
+    background-color: var(--color-bg-secondary);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border-light);
+}
+
+.page-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    justify-content: flex-end;
+}
+
+.text-muted {
+    color: var(--color-text-muted);
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-3xl) var(--spacing-lg);
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+}
+
+.empty-icon {
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-lg);
+}
+
+.empty-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.empty-description {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-lg);
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.empty-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: center;
+}
+
+@media (max-width: 767px) {
+    .empty-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+
+/* Activity section - reuse from project detail */
+.activity-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.activity-list {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+}
+
+.activity-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) 0;
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.activity-item:first-child {
+    padding-top: 0;
+}
+
+.activity-icon {
+    color: var(--color-primary);
+    flex-shrink: 0;
+    margin-top: var(--spacing-xs);
+}
+
+.activity-content {
+    flex: 1;
+}
+
+.activity-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-xs);
+}
+
+.activity-time {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+/* Configuration section */
+.config-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.config-grid {
+    display: grid;
+    gap: var(--spacing-md);
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+}
+
+@media (min-width: 768px) {
+    .config-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.config-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.config-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-xs);
+}
+
+.config-value {
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.config-enabled {
+    color: var(--color-success);
+    font-weight: var(--font-weight-medium);
+}
+
+.config-disabled {
+    color: var(--color-text-muted);
+    font-weight: var(--font-weight-medium);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function scanWebsite() {
+    const button = document.getElementById('scan-btn');
+    const originalText = button.innerHTML;
+    
+    // Update button state
+    button.disabled = true;
+    button.innerHTML = `
+        <svg class="btn-icon animate-spin" aria-hidden="true" width="16" height="16">
+            <path d="M21 12A9 9 0 0112 3" stroke="currentColor" fill="none" stroke-width="2"/>
+        </svg>
+        Scanning...
+    `;
+    
+    // Make AJAX request to start scanning
+    fetch(`{{ url_for('websites.scan_website', project_id=project.project_id, website_id=website.website_id) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message and reload page after delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            // Show error message
+            button.disabled = false;
+            button.innerHTML = originalText;
+            console.error('Scan failed:', data.error);
+        }
+    })
+    .catch(error => {
+        button.disabled = false;
+        button.innerHTML = originalText;
+        console.error('Scan error:', error);
+    });
+}
+
+function testWebsite() {
+    const button = document.getElementById('test-btn');
+    const originalText = button.innerHTML;
+    
+    // Update button state
+    button.disabled = true;
+    button.innerHTML = `
+        <svg class="btn-icon animate-spin" aria-hidden="true" width="16" height="16">
+            <path d="M21 12A9 9 0 0112 3" stroke="currentColor" fill="none" stroke-width="2"/>
+        </svg>
+        Testing...
+    `;
+    
+    // Make AJAX request to start testing
+    fetch(`{{ url_for('websites.test_website', project_id=project.project_id, website_id=website.website_id) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message and reload page after delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+        } else {
+            // Show error message
+            button.disabled = false;
+            button.innerHTML = originalText;
+            console.error('Test failed:', data.error);
+        }
+    })
+    .catch(error => {
+        button.disabled = false;
+        button.innerHTML = originalText;
+        console.error('Test error:', error);
+    });
+}
+
+function testPage(pageId) {
+    console.log('Testing page:', pageId);
+    // TODO: Implement individual page testing
+}
+
+function addPage() {
+    console.log('Add page manually');
+    // TODO: Implement manual page addition
+}
+
+// Add spinning animation for loading states  
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    .animate-spin {
+        animation: spin 1s linear infinite;
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

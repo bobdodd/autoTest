@@ -1,0 +1,474 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Add Page - {{ website.name }} - {{ project.name }} - {{ app_name }}{% endblock %}
+
+{% block meta_description %}Manually add a page to {{ website.name }} for accessibility testing and monitoring.{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb" class="breadcrumb">
+    <div class="container">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('main.index') }}" class="breadcrumb-link">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.list_projects') }}" class="breadcrumb-link">Projects</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.view_project', project_id=project.project_id) }}" class="breadcrumb-link">{{ project.name }}</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('websites.view_website', project_id=project.project_id, website_id=website.website_id) }}" class="breadcrumb-link">{{ website.name }}</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('pages.list_pages', project_id=project.project_id, website_id=website.website_id) }}" class="breadcrumb-link">Pages</a>
+            </li>
+            <li class="breadcrumb-item" aria-current="page">
+                <span class="breadcrumb-current">Add Page</span>
+            </li>
+        </ol>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Page header -->
+    <header class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">Add Page Manually</h1>
+            <p class="page-description">
+                Add a specific page to <strong>{{ website.name }}</strong> for accessibility testing.
+                This is useful for pages that might not be discovered automatically.
+            </p>
+        </div>
+    </header>
+    
+    <!-- Page creation form -->
+    <div class="content-section">
+        <div class="form-container">
+            <form method="post" class="page-form" novalidate>
+                <fieldset class="form-fieldset">
+                    <legend class="form-legend">Page Information</legend>
+                    
+                    <div class="form-group">
+                        <label for="url" class="form-label required">
+                            Page URL
+                            <span class="required-indicator" aria-label="Required field">*</span>
+                        </label>
+                        <input 
+                            type="url" 
+                            id="url" 
+                            name="url" 
+                            class="form-input"
+                            value="{{ form_data.url if form_data else '' }}"
+                            required
+                            placeholder="https://example.com/page"
+                            aria-describedby="url-help"
+                            autocomplete="url"
+                        >
+                        <div id="url-help" class="form-help">
+                            The complete URL of the page you want to test. Must start with http:// or https://.
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="title" class="form-label">
+                            Page Title
+                            <span class="optional-indicator">(Optional)</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="title" 
+                            name="title" 
+                            class="form-input"
+                            value="{{ form_data.title if form_data else '' }}"
+                            maxlength="200"
+                            aria-describedby="title-help"
+                            autocomplete="off"
+                        >
+                        <div id="title-help" class="form-help">
+                            A descriptive title for this page. If left blank, the title will be extracted when the page is scanned.
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description" class="form-label">
+                            Description
+                            <span class="optional-indicator">(Optional)</span>
+                        </label>
+                        <textarea 
+                            id="description" 
+                            name="description" 
+                            class="form-textarea"
+                            rows="3"
+                            maxlength="500"
+                            aria-describedby="description-help"
+                        >{{ form_data.description if form_data else '' }}</textarea>
+                        <div id="description-help" class="form-help">
+                            Additional context about this page, why it's important to test, or special considerations.
+                        </div>
+                    </div>
+                </fieldset>
+                
+                <!-- Form actions -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                            <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/>
+                            <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        Add Page
+                    </button>
+                    <a href="{{ url_for('pages.list_pages', project_id=project.project_id, website_id=website.website_id) }}" class="btn btn-outline">
+                        <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                            <line x1="19" y1="12" x2="5" y2="12" stroke="currentColor" stroke-width="2"/>
+                            <polyline points="12,19 5,12 12,5" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Help sidebar -->
+        <aside class="help-sidebar" aria-labelledby="help-title">
+            <h2 id="help-title" class="help-title">Adding Pages</h2>
+            
+            <div class="help-section">
+                <h3 class="help-section-title">When to add manually</h3>
+                <ul class="help-list">
+                    <li>Pages behind authentication</li>
+                    <li>Pages not linked from the main site</li>
+                    <li>Important pages missed by discovery</li>
+                    <li>Landing pages from campaigns</li>
+                    <li>Special or critical user flows</li>
+                </ul>
+            </div>
+            
+            <div class="help-section">
+                <h3 class="help-section-title">URL Requirements</h3>
+                <ul class="help-list">
+                    <li>Must be a complete, valid URL</li>
+                    <li>Should be publicly accessible</li>
+                    <li>Must start with http:// or https://</li>
+                    <li>Cannot be a duplicate of existing pages</li>
+                </ul>
+            </div>
+            
+            <div class="help-section">
+                <h3 class="help-section-title">Best Practices</h3>
+                <ul class="help-list">
+                    <li>Use descriptive titles for easy identification</li>
+                    <li>Add context in the description field</li>
+                    <li>Check for duplicates before adding</li>
+                    <li>Verify the URL is accessible</li>
+                </ul>
+            </div>
+            
+            <div class="help-section">
+                <h3 class="help-section-title">After Adding</h3>
+                <p class="help-text">
+                    Once added, you can:
+                </p>
+                <ul class="help-list">
+                    <li>Run accessibility tests immediately</li>
+                    <li>Include in bulk testing operations</li>
+                    <li>View detailed test results</li>
+                    <li>Track improvements over time</li>
+                </ul>
+            </div>
+            
+            <div class="help-action">
+                <a href="{{ url_for('pages.list_pages', project_id=project.project_id, website_id=website.website_id) }}" class="help-link">
+                    <svg class="help-icon" aria-hidden="true" width="16" height="16">
+                        <path d="M1 12S5 4 12 4S23 12 23 12S19 20 12 20S1 12 1 12Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <circle cx="12" cy="12" r="3" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                    View all pages
+                </a>
+            </div>
+        </aside>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Form container */
+.form-container {
+    max-width: 600px;
+}
+
+.page-form {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Fieldsets */
+.form-fieldset {
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+.form-legend {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    padding: 0;
+}
+
+/* Form groups */
+.form-group {
+    margin-bottom: var(--spacing-lg);
+}
+
+/* Form inputs */
+.form-label {
+    display: block;
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.required-indicator {
+    color: var(--color-danger);
+    font-weight: var(--font-weight-bold);
+}
+
+.optional-indicator {
+    color: var(--color-text-muted);
+    font-weight: var(--font-weight-normal);
+}
+
+.form-input,
+.form-textarea {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-family: inherit;
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-medium);
+    border-radius: var(--border-radius-md);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.form-input:focus,
+.form-textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+}
+
+.form-help {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin-top: var(--spacing-xs);
+    line-height: var(--line-height-relaxed);
+}
+
+/* Form actions */
+.form-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border-light);
+}
+
+@media (max-width: 767px) {
+    .form-actions {
+        flex-direction: column;
+    }
+}
+
+/* Content layout */
+.content-section {
+    display: grid;
+    gap: var(--spacing-2xl);
+    grid-template-columns: 1fr 300px;
+    align-items: start;
+}
+
+@media (max-width: 1023px) {
+    .content-section {
+        grid-template-columns: 1fr;
+    }
+    
+    .help-sidebar {
+        order: -1;
+    }
+}
+
+/* Help sidebar - inherit styles from previous templates */
+.help-sidebar {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    position: sticky;
+    top: var(--spacing-xl);
+}
+
+.help-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+}
+
+.help-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.help-section:last-of-type {
+    margin-bottom: 0;
+}
+
+.help-section-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.help-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-sm);
+}
+
+.help-text:last-child {
+    margin-bottom: 0;
+}
+
+.help-list {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+}
+
+.help-list li {
+    margin-bottom: var(--spacing-xs);
+}
+
+.help-action {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border-light);
+}
+
+.help-link {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+}
+
+.help-link:hover,
+.help-link:focus {
+    text-decoration: underline;
+}
+
+.help-icon {
+    flex-shrink: 0;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// URL validation and formatting
+document.getElementById('url').addEventListener('blur', function() {
+    let url = this.value.trim();
+    if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+        // Auto-add https:// if no protocol specified
+        this.value = 'https://' + url;
+    }
+});
+
+// Form validation
+document.querySelector('.page-form').addEventListener('submit', function(e) {
+    const url = document.getElementById('url').value.trim();
+    
+    let hasErrors = false;
+    
+    // Clear previous error states
+    document.querySelectorAll('.form-input, .form-textarea').forEach(input => {
+        input.classList.remove('error');
+    });
+    
+    // Validate required fields
+    if (!url) {
+        document.getElementById('url').classList.add('error');
+        hasErrors = true;
+    } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        document.getElementById('url').classList.add('error');
+        hasErrors = true;
+    }
+    
+    if (hasErrors) {
+        e.preventDefault();
+        // Focus on first error field
+        const firstError = document.querySelector('.form-input.error, .form-textarea.error');
+        if (firstError) {
+            firstError.focus();
+        }
+    }
+});
+
+// Auto-populate title from URL if empty
+document.getElementById('url').addEventListener('change', function() {
+    const urlInput = this;
+    const titleInput = document.getElementById('title');
+    
+    if (urlInput.value && !titleInput.value) {
+        try {
+            const url = new URL(urlInput.value);
+            const pathSegments = url.pathname.split('/').filter(segment => segment);
+            const lastSegment = pathSegments[pathSegments.length - 1];
+            
+            if (lastSegment && lastSegment !== 'index.html') {
+                // Convert URL segment to readable title
+                const suggestedTitle = lastSegment
+                    .replace(/[-_]/g, ' ')
+                    .replace(/\.(html|php|aspx?)$/i, '')
+                    .replace(/\b\w/g, l => l.toUpperCase());
+                
+                if (suggestedTitle.length > 0) {
+                    titleInput.value = suggestedTitle;
+                }
+            }
+        } catch (e) {
+            // Invalid URL, ignore
+        }
+    }
+});
+
+// Add error state styles
+const style = document.createElement('style');
+style.textContent = `
+    .form-input.error,
+    .form-textarea.error {
+        border-color: var(--color-danger);
+        box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2);
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

@@ -1,0 +1,368 @@
+{% extends "base/layout.html" %}
+
+{% block title %}New Project - {{ app_name }}{% endblock %}
+
+{% block meta_description %}Create a new accessibility testing project to organize websites and track WCAG compliance over time.{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb" class="breadcrumb">
+    <div class="container">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('main.index') }}" class="breadcrumb-link">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.list_projects') }}" class="breadcrumb-link">Projects</a>
+            </li>
+            <li class="breadcrumb-item" aria-current="page">
+                <span class="breadcrumb-current">New Project</span>
+            </li>
+        </ol>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Page header -->
+    <header class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">Create New Project</h1>
+            <p class="page-description">
+                Projects help you organize multiple websites for comprehensive accessibility testing. 
+                Each project can contain multiple websites and track improvements over time.
+            </p>
+        </div>
+    </header>
+    
+    <!-- Project creation form -->
+    <div class="content-section">
+        <div class="form-container">
+            <form method="post" class="project-form" novalidate>
+                <fieldset class="form-fieldset">
+                    <legend class="form-legend">Project Details</legend>
+                    
+                    <!-- Project Name -->
+                    <div class="form-group">
+                        <label for="name" class="form-label required">
+                            Project Name
+                            <span class="required-indicator" aria-label="Required field">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="name" 
+                            name="name" 
+                            class="form-input"
+                            value="{{ form_data.name if form_data else '' }}"
+                            required
+                            maxlength="100"
+                            aria-describedby="name-help"
+                            autocomplete="off"
+                        >
+                        <div id="name-help" class="form-help">
+                            Choose a descriptive name for your project (e.g., "Company Website 2024", "E-commerce Platform").
+                        </div>
+                    </div>
+                    
+                    <!-- Project Description -->
+                    <div class="form-group">
+                        <label for="description" class="form-label">
+                            Description
+                            <span class="optional-indicator">(Optional)</span>
+                        </label>
+                        <textarea 
+                            id="description" 
+                            name="description" 
+                            class="form-textarea"
+                            rows="4"
+                            maxlength="500"
+                            aria-describedby="description-help"
+                        >{{ form_data.description if form_data else '' }}</textarea>
+                        <div id="description-help" class="form-help">
+                            Provide additional context about this project, testing goals, or notes for your team.
+                        </div>
+                    </div>
+                </fieldset>
+                
+                <!-- Form actions -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                            <path d="M19 21H5A2 2 0 013 19V5A2 2 0 015 3H16L21 8V19A2 2 0 0119 21Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M17 21V13H7V21" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M7 3V8H15" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        Create Project
+                    </button>
+                    <a href="{{ url_for('projects.list_projects') }}" class="btn btn-outline">
+                        <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                            <line x1="19" y1="12" x2="5" y2="12" stroke="currentColor" stroke-width="2"/>
+                            <polyline points="12,19 5,12 12,5" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Help sidebar -->
+        <aside class="help-sidebar" aria-labelledby="help-title">
+            <h2 id="help-title" class="help-title">Getting Started</h2>
+            
+            <div class="help-section">
+                <h3 class="help-section-title">What is a project?</h3>
+                <p class="help-text">
+                    A project is a container for organizing related websites that you want to test for accessibility. 
+                    Projects help you track improvements over time and generate comprehensive reports.
+                </p>
+            </div>
+            
+            <div class="help-section">
+                <h3 class="help-section-title">Best practices</h3>
+                <ul class="help-list">
+                    <li>Use descriptive names that identify the purpose or scope</li>
+                    <li>Include the year or version if applicable</li>
+                    <li>Group related websites under one project</li>
+                    <li>Add descriptions to provide context for team members</li>
+                </ul>
+            </div>
+            
+            <div class="help-section">
+                <h3 class="help-section-title">Next steps</h3>
+                <p class="help-text">
+                    After creating your project, you can:
+                </p>
+                <ul class="help-list">
+                    <li>Add websites to test</li>
+                    <li>Configure testing rules</li>
+                    <li>Run accessibility scans</li>
+                    <li>View detailed reports</li>
+                </ul>
+            </div>
+            
+            <div class="help-action">
+                <a href="{{ url_for('main.help') }}" class="help-link">
+                    <svg class="help-icon" aria-hidden="true" width="16" height="16">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <path d="M9.09 9A3 3 0 0112 6C13.11 6 14.08 6.59 14.65 7.5" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <path d="M12 17H12.01" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                    View full documentation
+                </a>
+            </div>
+        </aside>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Form Styles */
+.form-container {
+    max-width: 600px;
+}
+
+.project-form {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+    box-shadow: var(--shadow-sm);
+}
+
+.form-fieldset {
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+.form-legend {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    padding: 0;
+}
+
+.form-group {
+    margin-bottom: var(--spacing-lg);
+}
+
+.form-label {
+    display: block;
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.required-indicator {
+    color: var(--color-danger);
+    font-weight: var(--font-weight-bold);
+}
+
+.optional-indicator {
+    color: var(--color-text-muted);
+    font-weight: var(--font-weight-normal);
+}
+
+.form-input,
+.form-textarea {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-family: inherit;
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-medium);
+    border-radius: var(--border-radius-md);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.form-input:focus,
+.form-textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+}
+
+.form-input[aria-invalid="true"],
+.form-textarea[aria-invalid="true"] {
+    border-color: var(--color-danger);
+}
+
+.form-help {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin-top: var(--spacing-xs);
+    line-height: var(--line-height-relaxed);
+}
+
+.field-error {
+    color: var(--color-danger);
+    font-size: var(--font-size-sm);
+    margin-top: var(--spacing-xs);
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+}
+
+.field-error::before {
+    content: "⚠";
+    flex-shrink: 0;
+}
+
+.form-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border-light);
+}
+
+@media (max-width: 767px) {
+    .form-actions {
+        flex-direction: column;
+    }
+}
+
+/* Help Sidebar */
+.content-section {
+    display: grid;
+    gap: var(--spacing-2xl);
+    grid-template-columns: 1fr 300px;
+    align-items: start;
+}
+
+@media (max-width: 1023px) {
+    .content-section {
+        grid-template-columns: 1fr;
+    }
+    
+    .help-sidebar {
+        order: -1;
+    }
+}
+
+.help-sidebar {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    position: sticky;
+    top: var(--spacing-xl);
+}
+
+.help-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+}
+
+.help-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.help-section:last-of-type {
+    margin-bottom: 0;
+}
+
+.help-section-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.help-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-sm);
+}
+
+.help-text:last-child {
+    margin-bottom: 0;
+}
+
+.help-list {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+}
+
+.help-list li {
+    margin-bottom: var(--spacing-xs);
+}
+
+.help-action {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border-light);
+}
+
+.help-link {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+}
+
+.help-link:hover,
+.help-link:focus {
+    text-decoration: underline;
+}
+
+.help-icon {
+    flex-shrink: 0;
+}
+</style>
+{% endblock %}

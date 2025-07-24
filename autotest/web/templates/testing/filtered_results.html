@@ -1,0 +1,1158 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Filtered Results - {{ app_name }}{% endblock %}
+
+{% block meta_description %}View and filter accessibility test results by severity, rule type, and other criteria.{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb" class="breadcrumb">
+    <div class="container">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('main.index') }}" class="breadcrumb-link">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('testing.dashboard') }}" class="breadcrumb-link">Testing</a>
+            </li>
+            {% if context.project %}
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('testing.project_results', project_id=context.project.project_id) }}" class="breadcrumb-link">
+                        {{ context.project.name }}
+                    </a>
+                </li>
+            {% endif %}
+            <li class="breadcrumb-item" aria-current="page">
+                <span class="breadcrumb-current">Filtered Results</span>
+            </li>
+        </ol>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Results header -->
+    <header class="results-header">
+        <div class="results-title-section">
+            <h1 class="results-title">Accessibility Issues</h1>
+            <p class="results-description">
+                Found {{ total_violations }} violations across {{ total_pages }} pages
+                {% if active_filters %}
+                    with active filters applied
+                {% endif %}.
+            </p>
+        </div>
+        <div class="results-actions">
+            <button type="button" class="btn btn-outline btn-sm" onclick="clearAllFilters()">
+                <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                    <path d="M20 6L9 17L4 12" stroke="currentColor" fill="none" stroke-width="2"/>
+                </svg>
+                Clear Filters
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="exportFiltered()">
+                <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                    <path d="M21 15V19A2 2 0 0119 21H5A2 2 0 013 19V15" stroke="currentColor" fill="none" stroke-width="2"/>
+                    <polyline points="7,10 12,15 17,10" stroke="currentColor" fill="none" stroke-width="2"/>
+                    <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                Export Results
+            </button>
+        </div>
+    </header>
+
+    <!-- Filter controls -->
+    <section class="filter-section" aria-labelledby="filter-title">
+        <h2 id="filter-title" class="section-title">Filter & Sort</h2>
+        
+        <div class="filter-controls">
+            <!-- Severity filter -->
+            <div class="filter-group">
+                <label for="severity-filter" class="filter-label">Severity</label>
+                <div class="filter-options" id="severity-filter" role="group" aria-labelledby="filter-title">
+                    <button type="button" class="filter-chip severity-chip" data-filter="severity" data-value="critical" onclick="toggleFilter(this)">
+                        <span class="severity-indicator severity-critical"></span>
+                        Critical
+                        <span class="filter-count">({{ severity_counts.critical or 0 }})</span>
+                    </button>
+                    <button type="button" class="filter-chip severity-chip" data-filter="severity" data-value="serious" onclick="toggleFilter(this)">
+                        <span class="severity-indicator severity-serious"></span>
+                        Serious
+                        <span class="filter-count">({{ severity_counts.serious or 0 }})</span>
+                    </button>
+                    <button type="button" class="filter-chip severity-chip" data-filter="severity" data-value="moderate" onclick="toggleFilter(this)">
+                        <span class="severity-indicator severity-moderate"></span>
+                        Moderate
+                        <span class="filter-count">({{ severity_counts.moderate or 0 }})</span>
+                    </button>
+                    <button type="button" class="filter-chip severity-chip" data-filter="severity" data-value="minor" onclick="toggleFilter(this)">
+                        <span class="severity-indicator severity-minor"></span>
+                        Minor
+                        <span class="filter-count">({{ severity_counts.minor or 0 }})</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Rule type filter -->
+            <div class="filter-group">
+                <label for="rule-filter" class="filter-label">Rule Type</label>
+                <div class="filter-options" id="rule-filter" role="group">
+                    {% for rule_type, count in rule_counts.items() %}
+                        <button type="button" class="filter-chip rule-chip" data-filter="rule" data-value="{{ rule_type }}" onclick="toggleFilter(this)">
+                            {{ rule_type | replace('-', ' ') | title }}
+                            <span class="filter-count">({{ count }})</span>
+                        </button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- WCAG level filter -->
+            <div class="filter-group">
+                <label for="wcag-filter" class="filter-label">WCAG Level</label>
+                <div class="filter-options" id="wcag-filter" role="group">
+                    {% for wcag_level, count in wcag_counts.items() %}
+                        <button type="button" class="filter-chip wcag-chip" data-filter="wcag" data-value="{{ wcag_level }}" onclick="toggleFilter(this)">
+                            WCAG {{ wcag_level }}
+                            <span class="filter-count">({{ count }})</span>
+                        </button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Sort controls -->
+            <div class="filter-group">
+                <label for="sort-options" class="filter-label">Sort By</label>
+                <div class="sort-controls" id="sort-options">
+                    <select id="sort-by" class="sort-select" onchange="applySorting()">
+                        <option value="severity-desc">Severity (High to Low)</option>
+                        <option value="severity-asc">Severity (Low to High)</option>
+                        <option value="rule-asc">Rule Type (A-Z)</option>
+                        <option value="rule-desc">Rule Type (Z-A)</option>
+                        <option value="page-asc">Page (A-Z)</option>
+                        <option value="page-desc">Page (Z-A)</option>
+                        <option value="elements-desc">Element Count (High to Low)</option>
+                        <option value="elements-asc">Element Count (Low to High)</option>
+                    </select>
+                    <button type="button" class="sort-direction-btn" id="sort-direction" onclick="toggleSortDirection()" title="Toggle sort direction">
+                        <svg class="sort-icon" aria-hidden="true" width="16" height="16">
+                            <path d="M3 6L9 12L15 6" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active filters display -->
+        <div class="active-filters" id="active-filters" style="display: none;">
+            <span class="active-filters-label">Active filters:</span>
+            <div class="active-filters-list" id="active-filters-list">
+                <!-- Active filter chips will be inserted here -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Results statistics -->
+    <section class="stats-section" aria-labelledby="stats-title">
+        <h2 id="stats-title" class="section-title">Results Summary</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Total Issues</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <path d="M10.29 3.86L1.82 18A2 2 0 003.54 21H20.46A2 2 0 0022.18 18L13.71 3.86A2 2 0 0010.29 3.86Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value" id="total-violations">{{ total_violations }}</div>
+                <div class="stat-label">accessibility violations</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Affected Pages</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <path d="M14 2H6A2 2 0 004 4V20A2 2 0 006 22H18A2 2 0 0020 20V8L14 2Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <polyline points="14,2 14,8 20,8" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value" id="affected-pages">{{ total_pages }}</div>
+                <div class="stat-label">pages with issues</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Rule Types</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <circle cx="12" cy="12" r="3" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <path d="M12 1V3" stroke="currentColor" stroke-width="2"/>
+                        <path d="M12 21V23" stroke="currentColor" stroke-width="2"/>
+                        <path d="M4.22 4.22L5.64 5.64" stroke="currentColor" stroke-width="2"/>
+                        <path d="M18.36 18.36L19.78 19.78" stroke="currentColor" stroke-width="2"/>
+                        <path d="M1 12H3" stroke="currentColor" stroke-width="2"/>
+                        <path d="M21 12H23" stroke="currentColor" stroke-width="2"/>
+                        <path d="M4.22 19.78L5.64 18.36" stroke="currentColor" stroke-width="2"/>
+                        <path d="M18.36 5.64L19.78 4.22" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value" id="rule-types">{{ rule_counts | length }}</div>
+                <div class="stat-label">different rule types</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <h3 class="stat-title">Avg per Page</h3>
+                    <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                        <line x1="12" y1="20" x2="12" y2="10" stroke="currentColor" stroke-width="2"/>
+                        <line x1="18" y1="20" x2="18" y2="4" stroke="currentColor" stroke-width="2"/>
+                        <line x1="6" y1="20" x2="6" y2="16" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="stat-value" id="avg-per-page">{{ "%.1f" | format(total_violations / max(total_pages, 1)) }}</div>
+                <div class="stat-label">violations per page</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Results list -->
+    <section class="violations-section" aria-labelledby="violations-title">
+        <div class="section-header">
+            <h2 id="violations-title" class="section-title">Violations</h2>
+            <div class="section-actions">
+                <span class="violations-count" id="violations-count">{{ violations | length }} results</span>
+                <div class="view-options">
+                    <button type="button" class="view-option-btn active" data-view="list" onclick="switchView(this, 'list')">
+                        <svg aria-hidden="true" width="16" height="16">
+                            <line x1="8" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2"/>
+                            <line x1="8" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2"/>
+                            <line x1="8" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2"/>
+                            <line x1="3" y1="6" x2="3.01" y2="6" stroke="currentColor" stroke-width="2"/>
+                            <line x1="3" y1="12" x2="3.01" y2="12" stroke="currentColor" stroke-width="2"/>
+                            <line x1="3" y1="18" x2="3.01" y2="18" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        List
+                    </button>
+                    <button type="button" class="view-option-btn" data-view="grid" onclick="switchView(this, 'grid')">
+                        <svg aria-hidden="true" width="16" height="16">
+                            <rect x="3" y="3" width="7" height="7" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <rect x="14" y="3" width="7" height="7" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <rect x="14" y="14" width="7" height="7" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <rect x="3" y="14" width="7" height="7" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        Grid
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="violations-container" id="violations-container">
+            {% if violations %}
+                <div class="violations-list" id="violations-list">
+                    {% for violation in violations %}
+                        <div class="violation-card" 
+                             data-severity="{{ violation.severity }}" 
+                             data-rule="{{ violation.rule_id }}" 
+                             data-wcag="{{ violation.wcag_level }}"
+                             data-elements="{{ violation.element_count }}"
+                             data-page="{{ violation.page_title or violation.page_url }}">
+                            
+                            <div class="violation-header">
+                                <div class="violation-info">
+                                    <div class="violation-severity-info">
+                                        <span class="severity-badge severity-{{ violation.severity }}">
+                                            <svg class="severity-icon" aria-hidden="true" width="14" height="14">
+                                                {% if violation.severity == 'critical' %}
+                                                    <circle cx="7" cy="7" r="6" stroke="currentColor" fill="currentColor"/>
+                                                    <line x1="9" y1="5" x2="5" y2="9" stroke="white" stroke-width="1.5"/>
+                                                    <line x1="5" y1="5" x2="9" y2="9" stroke="white" stroke-width="1.5"/>
+                                                {% elif violation.severity == 'serious' %}
+                                                    <path d="M6.29 2.86L1.82 11A1 1 0 002.54 12.5H11.46A1 1 0 0012.18 11L7.71 2.86A1 1 0 006.29 2.86Z" stroke="currentColor" fill="currentColor"/>
+                                                    <line x1="7" y1="5" x2="7" y2="8" stroke="white" stroke-width="1.5"/>
+                                                    <line x1="7" y1="10" x2="7.01" y2="10" stroke="white" stroke-width="1.5"/>
+                                                {% elif violation.severity == 'moderate' %}
+                                                    <circle cx="7" cy="7" r="6" stroke="currentColor" fill="none" stroke-width="1.5"/>
+                                                    <line x1="7" y1="4" x2="7" y2="7" stroke="currentColor" stroke-width="1.5"/>
+                                                    <line x1="7" y1="9" x2="7.01" y2="9" stroke="currentColor" stroke-width="1.5"/>
+                                                {% else %}
+                                                    <circle cx="7" cy="7" r="6" stroke="currentColor" fill="none" stroke-width="1.5"/>
+                                                    <path d="M5,5 L9,9" stroke="currentColor" stroke-width="1.5"/>
+                                                    <path d="M9,5 L5,9" stroke="currentColor" stroke-width="1.5"/>
+                                                {% endif %}
+                                            </svg>
+                                            {{ violation.severity | title }}
+                                        </span>
+                                        <span class="wcag-badge">WCAG {{ violation.wcag_level }}</span>
+                                    </div>
+                                    <h3 class="violation-title">
+                                        <a href="{{ url_for('testing.view_violation', violation_id=violation.violation_id) }}" class="violation-link">
+                                            {{ violation.rule_id }}: {{ violation.description }}
+                                        </a>
+                                    </h3>
+                                    <div class="violation-meta">
+                                        <span class="violation-page">
+                                            <svg class="meta-icon" aria-hidden="true" width="14" height="14">
+                                                <path d="M10 2H4A2 2 0 002 4V10A2 2 0 004 12H10A2 2 0 0012 10V4A2 2 0 0010 2Z" stroke="currentColor" fill="none" stroke-width="1.5"/>
+                                                <polyline points="10,2 10,6 12,6" stroke="currentColor" fill="none" stroke-width="1.5"/>
+                                            </svg>
+                                            {{ violation.page_title or violation.page_url | truncate(50) }}
+                                        </span>
+                                        <span class="violation-elements">
+                                            <svg class="meta-icon" aria-hidden="true" width="14" height="14">
+                                                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" stroke="currentColor" fill="none" stroke-width="1.5"/>
+                                                <line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="1.5"/>
+                                                <line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="1.5"/>
+                                            </svg>
+                                            {{ violation.element_count }} {{ violation.element_count | pluralize('element', 'elements') }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="violation-actions">
+                                    <a href="{{ url_for('testing.view_violation', violation_id=violation.violation_id) }}" class="btn btn-ghost btn-xs">
+                                        <svg class="btn-icon" aria-hidden="true" width="14" height="14">
+                                            <path d="M1 7S3 2 7 2S13 7 13 7S11 12 7 12S1 7 1 7Z" stroke="currentColor" fill="none" stroke-width="1.5"/>
+                                            <circle cx="7" cy="7" r="2" stroke="currentColor" fill="none" stroke-width="1.5"/>
+                                        </svg>
+                                        View Details
+                                    </a>
+                                    <a href="{{ violation.page_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-xs">
+                                        <svg class="btn-icon" aria-hidden="true" width="14" height="14">
+                                            <path d="M5 5H9V9" stroke="currentColor" fill="none" stroke-width="1.5"/>
+                                            <path d="M5 9L9 5" stroke="currentColor" fill="none" stroke-width="1.5"/>
+                                        </svg>
+                                        Open Page
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <div class="violation-preview">
+                                <p class="violation-description">{{ violation.impact_description | truncate(200) }}</p>
+                                {% if violation.fix_preview %}
+                                    <div class="fix-preview">
+                                        <span class="fix-label">Quick Fix:</span>
+                                        <span class="fix-text">{{ violation.fix_preview }}</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <svg aria-hidden="true" width="48" height="48">
+                            <circle cx="24" cy="24" r="20" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M16 16L32 32" stroke="currentColor" stroke-width="2"/>
+                            <path d="M32 16L16 32" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <h3 class="empty-title">No Violations Found</h3>
+                    <p class="empty-description">
+                        {% if active_filters %}
+                            No violations match your current filter criteria. Try adjusting your filters or clearing them to see more results.
+                        {% else %}
+                            Great! No accessibility violations were found in the tested pages.
+                        {% endif %}
+                    </p>
+                    {% if active_filters %}
+                        <div class="empty-actions">
+                            <button type="button" class="btn btn-primary" onclick="clearAllFilters()">
+                                Clear All Filters
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Results header */
+.results-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-2xl);
+}
+
+@media (max-width: 767px) {
+    .results-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+.results-title {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.results-description {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin: 0;
+}
+
+.results-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-shrink: 0;
+}
+
+/* Filter section */
+.filter-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.section-title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+}
+
+.filter-controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.filter-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.filter-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-full);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-decoration: none;
+}
+
+.filter-chip:hover {
+    background-color: var(--color-bg-primary);
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+}
+
+.filter-chip.active {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: white;
+}
+
+.filter-count {
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
+}
+
+.severity-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.severity-critical {
+    background-color: #dc2626;
+}
+
+.severity-serious {
+    background-color: #ea580c;
+}
+
+.severity-moderate {
+    background-color: #d97706;
+}
+
+.severity-minor {
+    background-color: #2563eb;
+}
+
+/* Sort controls */
+.sort-controls {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.sort-select {
+    flex: 1;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-md);
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.sort-direction-btn {
+    padding: var(--spacing-sm);
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.sort-direction-btn:hover {
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+}
+
+.sort-direction-btn.desc .sort-icon {
+    transform: rotate(180deg);
+}
+
+/* Active filters */
+.active-filters {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border-light);
+}
+
+.active-filters-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    margin-right: var(--spacing-sm);
+}
+
+.active-filters-list {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.active-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background-color: var(--color-primary);
+    color: white;
+    border-radius: var(--border-radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+}
+
+.remove-filter {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 0;
+    margin-left: var(--spacing-xs);
+    opacity: 0.8;
+}
+
+.remove-filter:hover {
+    opacity: 1;
+}
+
+/* Stats section */
+.stats-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.stats-grid {
+    display: grid;
+    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.stat-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    text-align: center;
+}
+
+.stat-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.stat-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-icon {
+    color: var(--color-primary);
+}
+
+.stat-value {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.stat-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+/* Section header */
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-lg);
+}
+
+.violations-count {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin-right: var(--spacing-md);
+}
+
+.view-options {
+    display: flex;
+    gap: var(--spacing-xs);
+    background-color: var(--color-bg-secondary);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-xs);
+}
+
+.view-option-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: none;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-size: var(--font-size-sm);
+}
+
+.view-option-btn:hover,
+.view-option-btn.active {
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+}
+
+/* Violations list */
+.violations-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.violations-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.violations-list.grid-view {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+}
+
+.violation-card {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    transition: box-shadow var(--transition-fast);
+}
+
+.violation-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.violation-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.violation-severity-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.severity-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--border-radius-full);
+    white-space: nowrap;
+}
+
+.severity-badge.severity-critical {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.severity-badge.severity-serious {
+    background-color: #fed7aa;
+    color: #9a3412;
+    border: 1px solid #fdba74;
+}
+
+.severity-badge.severity-moderate {
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fbbf24;
+}
+
+.severity-badge.severity-minor {
+    background-color: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+.wcag-badge {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    background-color: var(--color-bg-secondary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+}
+
+.violation-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+    line-height: var(--line-height-tight);
+}
+
+.violation-link {
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.violation-link:hover,
+.violation-link:focus {
+    color: var(--color-primary);
+    text-decoration: underline;
+}
+
+.violation-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.violation-page,
+.violation-elements {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.meta-icon {
+    flex-shrink: 0;
+}
+
+.violation-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    flex-shrink: 0;
+}
+
+.violation-preview {
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--color-border-light);
+}
+
+.violation-description {
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-sm);
+}
+
+.fix-preview {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: flex-start;
+}
+
+.fix-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-success);
+    flex-shrink: 0;
+}
+
+.fix-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    font-style: italic;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-3xl) var(--spacing-lg);
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+}
+
+.empty-icon {
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-lg);
+}
+
+.empty-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.empty-description {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-lg);
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.empty-actions {
+    display: flex;
+    justify-content: center;
+}
+
+/* Responsive design */
+@media (max-width: 767px) {
+    .filter-controls {
+        padding: var(--spacing-md);
+    }
+    
+    .violation-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .violation-actions {
+        justify-content: flex-end;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-md);
+    }
+    
+    .view-options {
+        align-self: flex-end;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let activeFilters = {
+    severity: [],
+    rule: [],
+    wcag: []
+};
+
+let currentSort = 'severity-desc';
+let sortDirection = 'desc';
+
+function toggleFilter(button) {
+    const filterType = button.dataset.filter;
+    const filterValue = button.dataset.value;
+    
+    button.classList.toggle('active');
+    
+    if (button.classList.contains('active')) {
+        if (!activeFilters[filterType].includes(filterValue)) {
+            activeFilters[filterType].push(filterValue);
+        }
+    } else {
+        activeFilters[filterType] = activeFilters[filterType].filter(v => v !== filterValue);
+    }
+    
+    updateActiveFiltersDisplay();
+    applyFilters();
+    updateStatistics();
+}
+
+function updateActiveFiltersDisplay() {
+    const container = document.getElementById('active-filters');
+    const list = document.getElementById('active-filters-list');
+    
+    // Clear existing active filter chips
+    list.innerHTML = '';
+    
+    let hasActiveFilters = false;
+    
+    // Add active filter chips
+    Object.entries(activeFilters).forEach(([type, values]) => {
+        values.forEach(value => {
+            hasActiveFilters = true;
+            const chip = document.createElement('span');
+            chip.className = 'active-filter-chip';
+            chip.innerHTML = `
+                ${type}: ${value}
+                <button type="button" class="remove-filter" onclick="removeFilter('${type}', '${value}')">
+                    <svg width="12" height="12" aria-hidden="true">
+                        <line x1="12" y1="12" x2="0" y2="0" stroke="currentColor" stroke-width="2"/>
+                        <line x1="0" y1="12" x2="12" y2="0" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </button>
+            `;
+            list.appendChild(chip);
+        });
+    });
+    
+    container.style.display = hasActiveFilters ? 'block' : 'none';
+}
+
+function removeFilter(type, value) {
+    activeFilters[type] = activeFilters[type].filter(v => v !== value);
+    
+    // Update button state
+    const button = document.querySelector(`[data-filter="${type}"][data-value="${value}"]`);
+    if (button) {
+        button.classList.remove('active');
+    }
+    
+    updateActiveFiltersDisplay();
+    applyFilters();
+    updateStatistics();
+}
+
+function clearAllFilters() {
+    // Reset active filters
+    activeFilters = {
+        severity: [],
+        rule: [],
+        wcag: []
+    };
+    
+    // Reset all filter buttons
+    document.querySelectorAll('.filter-chip.active').forEach(button => {
+        button.classList.remove('active');
+    });
+    
+    updateActiveFiltersDisplay();
+    applyFilters();
+    updateStatistics();
+}
+
+function applyFilters() {
+    const cards = document.querySelectorAll('.violation-card');
+    let visibleCount = 0;
+    
+    cards.forEach(card => {
+        let visible = true;
+        
+        // Check severity filter
+        if (activeFilters.severity.length > 0) {
+            const severity = card.dataset.severity;
+            if (!activeFilters.severity.includes(severity)) {
+                visible = false;
+            }
+        }
+        
+        // Check rule filter
+        if (activeFilters.rule.length > 0) {
+            const rule = card.dataset.rule;
+            if (!activeFilters.rule.includes(rule)) {
+                visible = false;
+            }
+        }
+        
+        // Check WCAG filter
+        if (activeFilters.wcag.length > 0) {
+            const wcag = card.dataset.wcag;
+            if (!activeFilters.wcag.includes(wcag)) {
+                visible = false;
+            }
+        }
+        
+        card.style.display = visible ? 'block' : 'none';
+        if (visible) visibleCount++;
+    });
+    
+    // Update results count
+    document.getElementById('violations-count').textContent = `${visibleCount} results`;
+}
+
+function applySorting() {
+    const sortBy = document.getElementById('sort-by').value;
+    currentSort = sortBy;
+    
+    const [field, direction] = sortBy.split('-');
+    sortDirection = direction;
+    
+    // Update sort direction button
+    const directionBtn = document.getElementById('sort-direction');
+    directionBtn.className = `sort-direction-btn ${direction}`;
+    
+    sortViolations(field, direction);
+}
+
+function toggleSortDirection() {
+    const newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    const field = currentSort.split('-')[0];
+    
+    document.getElementById('sort-by').value = `${field}-${newDirection}`;
+    applySorting();
+}
+
+function sortViolations(field, direction) {
+    const container = document.getElementById('violations-list');
+    const cards = Array.from(container.querySelectorAll('.violation-card'));
+    
+    cards.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch (field) {
+            case 'severity':
+                const severityOrder = { 'critical': 4, 'serious': 3, 'moderate': 2, 'minor': 1 };
+                aValue = severityOrder[a.dataset.severity] || 0;
+                bValue = severityOrder[b.dataset.severity] || 0;
+                break;
+            case 'rule':
+                aValue = a.dataset.rule.toLowerCase();
+                bValue = b.dataset.rule.toLowerCase();
+                break;
+            case 'page':
+                aValue = a.dataset.page.toLowerCase();
+                bValue = b.dataset.page.toLowerCase();
+                break;
+            case 'elements':
+                aValue = parseInt(a.dataset.elements) || 0;
+                bValue = parseInt(b.dataset.elements) || 0;
+                break;
+            default:
+                return 0;
+        }
+        
+        if (direction === 'asc') {
+            return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+        } else {
+            return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+        }
+    });
+    
+    // Re-append sorted cards
+    cards.forEach(card => container.appendChild(card));
+}
+
+function switchView(button, view) {
+    // Update button states
+    document.querySelectorAll('.view-option-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    button.classList.add('active');
+    
+    // Update list class
+    const list = document.getElementById('violations-list');
+    if (view === 'grid') {
+        list.classList.add('grid-view');
+    } else {
+        list.classList.remove('grid-view');
+    }
+}
+
+function updateStatistics() {
+    const visibleCards = document.querySelectorAll('.violation-card[style="display: block;"], .violation-card:not([style*="display: none"])');
+    const totalViolations = visibleCards.length;
+    
+    // Update total violations
+    document.getElementById('total-violations').textContent = totalViolations;
+    
+    // Count unique pages
+    const uniquePages = new Set();
+    visibleCards.forEach(card => {
+        uniquePages.add(card.dataset.page);
+    });
+    document.getElementById('affected-pages').textContent = uniquePages.size;
+    
+    // Count unique rule types
+    const uniqueRules = new Set();
+    visibleCards.forEach(card => {
+        uniqueRules.add(card.dataset.rule);
+    });
+    document.getElementById('rule-types').textContent = uniqueRules.size;
+    
+    // Calculate average per page
+    const avgPerPage = uniquePages.size > 0 ? (totalViolations / uniquePages.size).toFixed(1) : '0.0';
+    document.getElementById('avg-per-page').textContent = avgPerPage;
+}
+
+function exportFiltered() {
+    // This would export only the currently filtered results
+    alert('Export functionality for filtered results will be implemented in the next phase.');
+}
+
+// Initialize sorting on page load
+document.addEventListener('DOMContentLoaded', function() {
+    applySorting();
+    updateStatistics();
+});
+</script>
+{% endblock %}

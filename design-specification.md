@@ -11,7 +11,7 @@ AutoTest is a Python-based automated accessibility testing tool with a graphical
 - **GUI Framework**: tkinter or PyQt6
 - **Database**: MongoDB
 - **Web Scraping**: Selenium WebDriver, BeautifulSoup
-- **Accessibility Testing**: axe-core, pa11y, or similar accessibility engines
+- **Accessibility Testing**: Custom accessibility testing engine (no external dependencies)
 - **HTTP Client**: requests, aiohttp
 
 #### Information Architecture
@@ -151,7 +151,7 @@ AutoTest is a Python-based automated accessibility testing tool with a graphical
 - **Single Page Testing**: Run accessibility tests on individual pages
 - **Batch Testing**: Run tests on multiple pages or entire websites
 - **Scheduled Testing**: Configure automated testing schedules
-- **Test Engine Integration**: Support for multiple accessibility testing engines
+- **Custom Testing Engine**: Built-in accessibility testing with configurable rules
 
 #### Results and Reporting
 - **Test Results Viewer**: Display accessibility violations and passes
@@ -201,8 +201,13 @@ autotest/
 │   ├── __init__.py
 │   ├── project_manager.py  # Project CRUD operations
 │   ├── scraper.py          # Web scraping functionality
-│   ├── tester.py           # Accessibility testing engine
+│   ├── accessibility_tester.py # Custom accessibility testing engine
 │   └── database.py         # MongoDB interface
+├── testing/
+│   ├── __init__.py
+│   ├── rules/              # Custom accessibility rules
+│   ├── checkers/           # Individual accessibility checkers
+│   └── reporters/          # Test result formatters
 ├── models/
 │   ├── __init__.py
 │   ├── project.py          # Project data model
@@ -247,4 +252,4 @@ autotest/
 - beautifulsoup4: HTML parsing
 - requests: HTTP client library
 - tkinter/PyQt6: GUI framework
-- axe-selenium-python: Accessibility testing integration
+- Custom accessibility testing modules (no external dependencies)

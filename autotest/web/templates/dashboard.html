@@ -1,0 +1,233 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Dashboard - {{ app_name }}{% endblock %}
+
+{% block meta_description %}AutoTest dashboard with project overview, accessibility testing statistics, and recent activity.{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Page header -->
+    <header class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">Dashboard</h1>
+            <p class="page-description">
+                Overview of your accessibility testing projects and recent activity.
+            </p>
+        </div>
+        <div class="page-actions">
+            <a href="{{ url_for('projects.create_project') }}" class="btn btn-primary">
+                <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                    <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/>
+                    <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                New Project
+            </a>
+        </div>
+    </header>
+    
+    <!-- Statistics cards -->
+    <section class="stats-section" aria-labelledby="stats-heading">
+        <h2 id="stats-heading" class="sr-only">Testing Statistics</h2>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-content">
+                    <div class="stat-header">
+                        <h3 class="stat-title">Projects</h3>
+                        <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                            <path d="M22 19A2 2 0 0120 21H4A2 2 0 012 19V5A2 2 0 014 3H9L11 5H20A2 2 0 0122 7V19Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <div class="stat-value" aria-label="{{ stats.total_projects }} projects">
+                        {{ stats.total_projects }}
+                    </div>
+                    <div class="stat-description">
+                        Total accessibility testing projects
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-content">
+                    <div class="stat-header">
+                        <h3 class="stat-title">Websites</h3>
+                        <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M2 12H22M12 2A15.3 15.3 0 0116.24 12A15.3 15.3 0 0112 22A15.3 15.3 0 017.76 12A15.3 15.3 0 0112 2Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <div class="stat-value" aria-label="{{ stats.total_websites }} websites">
+                        {{ stats.total_websites }}
+                    </div>
+                    <div class="stat-description">
+                        Websites being monitored
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-content">
+                    <div class="stat-header">
+                        <h3 class="stat-title">Pages</h3>
+                        <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                            <path d="M14 2H6A2 2 0 004 4V20A2 2 0 006 22H18A2 2 0 0020 20V8L14 2Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M14 2V8H20" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <div class="stat-value" aria-label="{{ stats.total_pages }} pages">
+                        {{ stats.total_pages }}
+                    </div>
+                    <div class="stat-description">
+                        Individual pages discovered
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-card-alert">
+                <div class="stat-content">
+                    <div class="stat-header">
+                        <h3 class="stat-title">Violations</h3>
+                        <svg class="stat-icon" aria-hidden="true" width="24" height="24">
+                            <path d="M10.29 3.86L1.82 18A2 2 0 003.54 21H20.46A2 2 0 0022.18 18L13.71 3.86A2 2 0 0010.29 3.86Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <div class="stat-value" aria-label="{{ stats.total_violations }} accessibility violations">
+                        {{ stats.total_violations }}
+                    </div>
+                    <div class="stat-description">
+                        Accessibility issues found
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Main content sections -->
+    <div class="dashboard-content">
+        <!-- Recent projects -->
+        <section class="dashboard-section" aria-labelledby="recent-projects-heading">
+            <header class="section-header">
+                <h2 id="recent-projects-heading" class="section-title">Recent Projects</h2>
+                <a href="{{ url_for('projects.list_projects') }}" class="section-link">
+                    View all projects
+                    <svg class="link-icon" aria-hidden="true" width="16" height="16">
+                        <path d="M7 17L17 7M17 7H7M17 7V17" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                </a>
+            </header>
+            
+            {% if stats.recent_projects %}
+                <div class="project-list">
+                    {% for project in stats.recent_projects %}
+                        <article class="project-card">
+                            <div class="project-content">
+                                <header class="project-header">
+                                    <h3 class="project-title">
+                                        <a href="{{ url_for('projects.view_project', project_id=project.project_id) }}" class="project-link">
+                                            {{ project.name }}
+                                        </a>
+                                    </h3>
+                                    <time class="project-date" datetime="{{ project.last_modified or project.created_date }}">
+                                        {{ (project.last_modified or project.created_date) | format_datetime }}
+                                    </time>
+                                </header>
+                                
+                                {% if project.description %}
+                                    <p class="project-description">{{ project.description }}</p>
+                                {% endif %}
+                                
+                                <div class="project-stats">
+                                    <div class="project-stat">
+                                        <span class="stat-label">Websites:</span>
+                                        <span class="stat-number">{{ project.website_count }}</span>
+                                    </div>
+                                    <div class="project-stat">
+                                        <span class="stat-label">Pages:</span>
+                                        <span class="stat-number">{{ project.page_count }}</span>
+                                    </div>
+                                    {% if project.total_violations > 0 %}
+                                        <div class="project-stat project-stat-alert">
+                                            <span class="stat-label">Issues:</span>
+                                            <span class="stat-number">{{ project.total_violations }}</span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="project-actions">
+                                <a href="{{ url_for('projects.view_project', project_id=project.project_id) }}" class="btn btn-outline btn-sm">
+                                    View Details
+                                </a>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-content">
+                        <svg class="empty-state-icon" aria-hidden="true" width="64" height="64">
+                            <path d="M22 19A2 2 0 0120 21H4A2 2 0 012 19V5A2 2 0 014 3H9L11 5H20A2 2 0 0122 7V19Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        <h3 class="empty-state-title">No projects yet</h3>
+                        <p class="empty-state-description">
+                            Create your first accessibility testing project to get started.
+                        </p>
+                        <a href="{{ url_for('projects.create_project') }}" class="btn btn-primary">
+                            <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                                <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/>
+                                <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            Create Project
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+        
+        <!-- Quick actions -->
+        <section class="dashboard-section" aria-labelledby="quick-actions-heading">
+            <header class="section-header">
+                <h2 id="quick-actions-heading" class="section-title">Quick Actions</h2>
+            </header>
+            
+            <div class="action-grid">
+                <a href="{{ url_for('projects.create_project') }}" class="action-card">
+                    <div class="action-content">
+                        <svg class="action-icon" aria-hidden="true" width="32" height="32">
+                            <path d="M22 19A2 2 0 0120 21H4A2 2 0 012 19V5A2 2 0 014 3H9L11 5H20A2 2 0 0122 7V19Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <line x1="12" y1="11" x2="12" y2="17" stroke="currentColor" stroke-width="2"/>
+                            <line x1="9" y1="14" x2="15" y2="14" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        <h3 class="action-title">New Project</h3>
+                        <p class="action-description">Start a new accessibility testing project</p>
+                    </div>
+                </a>
+                
+                <a href="{{ url_for('testing.rules') }}" class="action-card">
+                    <div class="action-content">
+                        <svg class="action-icon" aria-hidden="true" width="32" height="32">
+                            <path d="M9 12L11 14L15 10M21 12C21 16.97 17.97 21 12 21C7.03 21 3 16.97 3 12C3 7.03 7.03 3 12 3C16.97 3 21 7.03 21 12Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        <h3 class="action-title">Test Rules</h3>
+                        <p class="action-description">Configure accessibility testing rules</p>
+                    </div>
+                </a>
+                
+                <a href="{{ url_for('main.help') }}" class="action-card">
+                    <div class="action-content">
+                        <svg class="action-icon" aria-hidden="true" width="32" height="32">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M9.09 9A3 3 0 0112 6C13.11 6 14.08 6.59 14.65 7.5" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M12 17H12.01" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        <h3 class="action-title">Documentation</h3>
+                        <p class="action-description">Learn how to use AutoTest effectively</p>
+                    </div>
+                </a>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}

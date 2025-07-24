@@ -1,0 +1,169 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Projects - {{ app_name }}{% endblock %}
+
+{% block meta_description %}Manage your accessibility testing projects. View, create, edit, and delete projects for comprehensive WCAG compliance testing.{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb" class="breadcrumb">
+    <div class="container">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('main.index') }}" class="breadcrumb-link">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item" aria-current="page">
+                <span class="breadcrumb-current">Projects</span>
+            </li>
+        </ol>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Page header -->
+    <header class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">Projects</h1>
+            <p class="page-description">
+                Manage your accessibility testing projects. Each project can contain multiple websites for comprehensive testing.
+            </p>
+        </div>
+        <div class="page-actions">
+            <a href="{{ url_for('projects.create_project') }}" class="btn btn-primary">
+                <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                    <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/>
+                    <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                New Project
+            </a>
+        </div>
+    </header>
+    
+    <!-- Projects list -->
+    <div class="content-section">
+        {% if projects %}
+            <div class="projects-grid">
+                {% for project in projects %}
+                    <article class="project-card">
+                        <div class="project-content">
+                            <header class="project-header">
+                                <h2 class="project-title">
+                                    <a href="{{ url_for('projects.view_project', project_id=project.project_id) }}" class="project-link">
+                                        {{ project.name }}
+                                    </a>
+                                </h2>
+                                <div class="project-meta">
+                                    <time class="project-date" datetime="{{ project.created_date }}">
+                                        Created {{ project.created_date | format_datetime }}
+                                    </time>
+                                    {% if project.last_modified and project.last_modified != project.created_date %}
+                                        <time class="project-date" datetime="{{ project.last_modified }}">
+                                            Updated {{ project.last_modified | format_datetime }}
+                                        </time>
+                                    {% endif %}
+                                </div>
+                            </header>
+                            
+                            {% if project.description %}
+                                <p class="project-description">{{ project.description }}</p>
+                            {% endif %}
+                            
+                            <!-- Project statistics -->
+                            <div class="project-stats">
+                                <div class="stat-group">
+                                    <div class="project-stat">
+                                        <span class="stat-label">Websites:</span>
+                                        <span class="stat-number">{{ project.website_count }}</span>
+                                    </div>
+                                    <div class="project-stat">
+                                        <span class="stat-label">Pages:</span>
+                                        <span class="stat-number">{{ project.page_count }}</span>
+                                    </div>
+                                    <div class="project-stat">
+                                        <span class="stat-label">Tests:</span>
+                                        <span class="stat-number">{{ project.total_tests }}</span>
+                                    </div>
+                                </div>
+                                
+                                {% if project.total_violations > 0 %}
+                                    <div class="violations-summary">
+                                        <span class="violations-count" aria-label="{{ project.total_violations }} accessibility violations">
+                                            <svg class="violations-icon" aria-hidden="true" width="16" height="16">
+                                                <path d="M10.29 3.86L1.82 18A2 2 0 003.54 21H20.46A2 2 0 0022.18 18L13.71 3.86A2 2 0 0010.29 3.86Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                                <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/>
+                                                <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/>
+                                            </svg>
+                                            {{ project.total_violations }} {{ project.total_violations | pluralize('issue', 'issues') }}
+                                        </span>
+                                    </div>
+                                {% else %}
+                                    <div class="no-violations">
+                                        <span class="no-violations-text">
+                                            <svg class="check-icon" aria-hidden="true" width="16" height="16">
+                                                <path d="M9 12L11 14L15 10M21 12C21 16.97 17.97 21 12 21C7.03 21 3 16.97 3 12C3 7.03 7.03 3 12 3C16.97 3 21 7.03 21 12Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                            </svg>
+                                            No issues found
+                                        </span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Project actions -->
+                        <div class="project-actions">
+                            <a href="{{ url_for('projects.view_project', project_id=project.project_id) }}" class="btn btn-primary btn-sm">
+                                View Details
+                            </a>
+                            <a href="{{ url_for('projects.edit_project', project_id=project.project_id) }}" class="btn btn-outline btn-sm" aria-label="Edit {{ project.name }}">
+                                <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                                    <path d="M11 4H4A2 2 0 002 6V18A2 2 0 004 20H16A2 2 0 0018 18V11" stroke="currentColor" fill="none" stroke-width="2"/>
+                                    <path d="M18.5 2.5A2.12 2.12 0 0115.68 5.32L7 14L3 15L4 11L12.68 2.32A2.12 2.12 0 0118.5 2.5Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                </svg>
+                                Edit
+                            </a>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+            
+            <!-- Projects summary -->
+            <div class="projects-summary">
+                <p class="summary-text">
+                    Showing {{ projects | length }} {{ projects | length | pluralize('project', 'projects') }}
+                </p>
+            </div>
+        {% else %}
+            <!-- Empty state -->
+            <div class="empty-state">
+                <div class="empty-state-content">
+                    <svg class="empty-state-icon" aria-hidden="true" width="64" height="64">
+                        <path d="M22 19A2 2 0 0120 21H4A2 2 0 012 19V5A2 2 0 014 3H9L11 5H20A2 2 0 0122 7V19Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                    <h2 class="empty-state-title">No projects yet</h2>
+                    <p class="empty-state-description">
+                        Create your first accessibility testing project to get started. Projects help you organize websites and track accessibility improvements over time.
+                    </p>
+                    <div class="empty-state-actions">
+                        <a href="{{ url_for('projects.create_project') }}" class="btn btn-primary">
+                            <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                                <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/>
+                                <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            Create Your First Project
+                        </a>
+                        <a href="{{ url_for('main.help') }}" class="btn btn-outline">
+                            <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                                <path d="M9.09 9A3 3 0 0112 6C13.11 6 14.08 6.59 14.65 7.5" stroke="currentColor" fill="none" stroke-width="2"/>
+                                <path d="M12 17H12.01" stroke="currentColor" fill="none" stroke-width="2"/>
+                            </svg>
+                            Learn More
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

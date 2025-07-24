@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{% block meta_description %}AutoTest - Automated Accessibility Testing Tool{% endblock %}">
+    
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="{{ url_for('static', filename='css/main.css') }}" as="style">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+    {% block extra_css %}{% endblock %}
+    
+    <!-- Skip link for keyboard users -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+</head>
+<body{% block body_class %}{% endblock %}>
+    <!-- Header with navigation -->
+    <header role="banner" class="site-header">
+        <div class="container">
+            <div class="header-content">
+                <!-- Logo/Brand -->
+                <div class="brand">
+                    <a href="{{ url_for('main.index') }}" class="brand-link" aria-label="AutoTest Home">
+                        <svg class="brand-icon" aria-hidden="true" width="32" height="32" viewBox="0 0 32 32">
+                            <circle cx="16" cy="16" r="14" fill="currentColor" opacity="0.1"/>
+                            <path d="M16 4L20 12H12L16 4ZM8 20L16 8L24 20H8Z" fill="currentColor"/>
+                        </svg>
+                        <span class="brand-text">{{ app_name }}</span>
+                    </a>
+                </div>
+                
+                <!-- Main Navigation -->
+                <nav role="navigation" aria-label="Main navigation" class="main-nav">
+                    <ul class="nav-list">
+                        <li class="nav-item">
+                            <a href="{{ url_for('main.index') }}" class="nav-link{% if request.endpoint == 'main.index' %} current{% endif %}" {% if request.endpoint == 'main.index' %}aria-current="page"{% endif %}>
+                                <svg class="nav-icon" aria-hidden="true" width="20" height="20">
+                                    <path d="M3 9L12 2L21 9V20A2 2 0 0119 22H5A2 2 0 013 20V9Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                </svg>
+                                Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ url_for('projects.list_projects') }}" class="nav-link{% if request.blueprint == 'projects' %} current{% endif %}" {% if request.blueprint == 'projects' %}aria-current="page"{% endif %}>
+                                <svg class="nav-icon" aria-hidden="true" width="20" height="20">
+                                    <path d="M22 19A2 2 0 0120 21H4A2 2 0 012 19V5A2 2 0 014 3H9L11 5H20A2 2 0 0122 7V19Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                </svg>
+                                Projects
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ url_for('testing.rules') }}" class="nav-link{% if request.blueprint == 'testing' %} current{% endif %}" {% if request.blueprint == 'testing' %}aria-current="page"{% endif %}>
+                                <svg class="nav-icon" aria-hidden="true" width="20" height="20">
+                                    <path d="M9 12L11 14L15 10M21 12C21 16.97 17.97 21 12 21C7.03 21 3 16.97 3 12C3 7.03 7.03 3 12 3C16.97 3 21 7.03 21 12Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                </svg>
+                                Testing
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ url_for('main.help') }}" class="nav-link{% if request.endpoint == 'main.help' %} current{% endif %}" {% if request.endpoint == 'main.help' %}aria-current="page"{% endif %}>
+                                <svg class="nav-icon" aria-hidden="true" width="20" height="20">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                                    <path d="M9.09 9A3 3 0 0112 6C13.11 6 14.08 6.59 14.65 7.5" stroke="currentColor" fill="none" stroke-width="2"/>
+                                    <path d="M12 17H12.01" stroke="currentColor" fill="none" stroke-width="2"/>
+                                </svg>
+                                Help
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+                
+                <!-- Mobile menu button -->
+                <button type="button" class="mobile-menu-btn" aria-controls="main-nav" aria-expanded="false" aria-label="Toggle navigation menu">
+                    <svg class="menu-icon" aria-hidden="true" width="24" height="24">
+                        <path d="M3 12H21M3 6H21M3 18H21" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Breadcrumb navigation -->
+    {% block breadcrumb %}{% endblock %}
+    
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages" role="alert" aria-live="polite">
+                <div class="container">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}" role="alert">
+                            <div class="flash-content">
+                                <svg class="flash-icon" aria-hidden="true" width="20" height="20">
+                                    {% if category == 'success' %}
+                                        <path d="M9 12L11 14L15 10M21 12C21 16.97 17.97 21 12 21C7.03 21 3 16.97 3 12C3 7.03 7.03 3 12 3C16.97 3 21 7.03 21 12Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                    {% elif category == 'error' %}
+                                        <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                                        <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                        <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                                    {% elif category == 'warning' %}
+                                        <path d="M10.29 3.86L1.82 18A2 2 0 003.54 21H20.46A2 2 0 0022.18 18L13.71 3.86A2 2 0 0010.29 3.86Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                        <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/>
+                                        <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/>
+                                    {% else %}
+                                        <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                                        <line x1="12" y1="16" x2="12" y2="12" stroke="currentColor" stroke-width="2"/>
+                                        <line x1="12" y1="8" x2="12.01" y2="8" stroke="currentColor" stroke-width="2"/>
+                                    {% endif %}
+                                </svg>
+                                <span class="flash-text">{{ message }}</span>
+                            </div>
+                            <button type="button" class="flash-close" aria-label="Dismiss message">
+                                <svg aria-hidden="true" width="16" height="16">
+                                    <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            </button>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+    {% endwith %}
+    
+    <!-- Main content -->
+    <main id="main-content" role="main" class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer role="contentinfo" class="site-footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3 class="footer-title">{{ app_name }}</h3>
+                    <p class="footer-description">
+                        Automated accessibility testing tool for WCAG compliance and inclusive web development.
+                    </p>
+                </div>
+                
+                <div class="footer-section">
+                    <h3 class="footer-title">Resources</h3>
+                    <ul class="footer-links">
+                        <li><a href="{{ url_for('main.help') }}" class="footer-link">Help & Documentation</a></li>
+                        <li><a href="{{ url_for('main.accessibility') }}" class="footer-link">Accessibility Statement</a></li>
+                        <li><a href="{{ url_for('main.about') }}" class="footer-link">About AutoTest</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h3 class="footer-title">Standards</h3>
+                    <ul class="footer-links">
+                        <li><a href="https://www.w3.org/WAI/WCAG21/quickref/" class="footer-link" target="_blank" rel="noopener">WCAG 2.1 Guidelines <span class="sr-only">(opens in new window)</span></a></li>
+                        <li><a href="https://www.w3.org/WAI/ARIA/apg/" class="footer-link" target="_blank" rel="noopener">ARIA Authoring Practices <span class="sr-only">(opens in new window)</span></a></li>
+                        <li><a href="https://webaim.org/" class="footer-link" target="_blank" rel="noopener">WebAIM Resources <span class="sr-only">(opens in new window)</span></a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p class="footer-copyright">
+                    &copy; 2025 AutoTest. Built with accessibility in mind.
+                </p>
+                <div class="footer-meta">
+                    <span class="footer-version">Version {{ app_version }}</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

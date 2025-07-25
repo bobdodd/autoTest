@@ -13,6 +13,10 @@
     <!-- Stylesheets -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/keyboard-navigation.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/help-system.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/progress-indicators.css') }}">
     {% block extra_css %}{% endblock %}
     
     <!-- Skip link for keyboard users -->
@@ -36,7 +40,7 @@
                 
                 <!-- Main Navigation -->
                 <nav role="navigation" aria-label="Main navigation" class="main-nav">
-                    <ul class="nav-list">
+                    <ul class="nav-list" data-roving-tabindex aria-orientation="horizontal">
                         <li class="nav-item">
                             <a href="{{ url_for('main.index') }}" class="nav-link{% if request.endpoint == 'main.index' %} current{% endif %}" {% if request.endpoint == 'main.index' %}aria-current="page"{% endif %}>
                                 <svg class="nav-icon" aria-hidden="true" width="20" height="20">
@@ -54,11 +58,36 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{{ url_for('testing.rules') }}" class="nav-link{% if request.blueprint == 'testing' %} current{% endif %}" {% if request.blueprint == 'testing' %}aria-current="page"{% endif %}>
+                            <a href="{{ url_for('testing.dashboard') }}" class="nav-link{% if request.blueprint == 'testing' %} current{% endif %}" {% if request.blueprint == 'testing' %}aria-current="page"{% endif %}>
                                 <svg class="nav-icon" aria-hidden="true" width="20" height="20">
                                     <path d="M9 12L11 14L15 10M21 12C21 16.97 17.97 21 12 21C7.03 21 3 16.97 3 12C3 7.03 7.03 3 12 3C16.97 3 21 7.03 21 12Z" stroke="currentColor" fill="none" stroke-width="2"/>
                                 </svg>
                                 Testing
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ url_for('scheduler.dashboard') }}" class="nav-link{% if request.blueprint == 'scheduler' %} current{% endif %}" {% if request.blueprint == 'scheduler' %}aria-current="page"{% endif %}>
+                                <svg class="nav-icon" aria-hidden="true" width="20" height="20">
+                                    <path d="M8 2V6M16 2V6M3 10H21M5 4H19A2 2 0 0121 6V20A2 2 0 0119 22H5A2 2 0 013 20V6A2 2 0 015 4Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                </svg>
+                                Scheduler
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ url_for('history.dashboard') }}" class="nav-link{% if request.blueprint == 'history' %} current{% endif %}" {% if request.blueprint == 'history' %}aria-current="page"{% endif %}>
+                                <svg class="nav-icon" aria-hidden="true" width="20" height="20">
+                                    <path d="M3 3V5H5V9H3V11H5V15H3V17H5V21H21V3H3ZM19 19H7V5H19V19Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                </svg>
+                                History
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ url_for('reports.dashboard') }}" class="nav-link{% if request.blueprint == 'reports' %} current{% endif %}" {% if request.blueprint == 'reports' %}aria-current="page"{% endif %}>
+                                <svg class="nav-icon" aria-hidden="true" width="20" height="20">
+                                    <path d="M14 2H6A2 2 0 004 4V20A2 2 0 006 22H18A2 2 0 0020 20V8L14 2Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                    <path d="M14 2V8H20" stroke="currentColor" fill="none" stroke-width="2"/>
+                                </svg>
+                                Reports
                             </a>
                         </li>
                         <li class="nav-item">
@@ -175,6 +204,11 @@
     
     <!-- JavaScript -->
     <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/keyboard-navigation.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/screen-reader.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/help-system.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/theme-system.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/progress-indicators.js') }}" defer></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

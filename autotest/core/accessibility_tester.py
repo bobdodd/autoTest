@@ -22,6 +22,12 @@ from autotest.models.test_result import (
 from autotest.utils.logger import LoggerMixin
 from autotest.utils.config import Config
 
+# Import CSS testing capabilities
+from autotest.testing.css import CSSAnalyzer, CSSModificationTester, CSSAccessibilityRules
+
+# Import JavaScript testing capabilities
+from autotest.testing.javascript import JavaScriptAnalyzer, JSAccessibilityChecker, JSDynamicTester
+
 
 @dataclass
 class TestRule:
@@ -57,6 +63,18 @@ class AccessibilityTester(LoggerMixin):
         # Initialize test rules
         self.rules: List[TestRule] = []
         self._initialize_rules()
+        
+        # Initialize CSS testing capabilities
+        self.css_analyzer = None
+        self.css_modifier = None
+        self.css_rules = CSSAccessibilityRules()
+        self.css_testing_enabled = config.get('testing.css_analysis_enabled', True)
+        
+        # Initialize JavaScript testing capabilities
+        self.js_analyzer = None
+        self.js_checker = JSAccessibilityChecker()
+        self.js_dynamic_tester = None
+        self.js_testing_enabled = config.get('testing.js_analysis_enabled', True)
         
         self.driver: Optional[webdriver.Chrome | webdriver.Firefox] = None
     
@@ -191,6 +209,18 @@ class AccessibilityTester(LoggerMixin):
             
             self.driver = driver
             
+            # Initialize CSS testing capabilities when driver is available
+            if self.css_testing_enabled:
+                self.css_analyzer = CSSAnalyzer(self.driver)
+                self.css_modifier = CSSModificationTester(self.driver, self.db_connection)
+                self.logger.info("CSS testing capabilities initialized")
+            
+            # Initialize JavaScript testing capabilities when driver is available
+            if self.js_testing_enabled:
+                self.js_analyzer = JavaScriptAnalyzer(self.driver)
+                self.js_dynamic_tester = JSDynamicTester(self.driver, self.db_connection)
+                self.logger.info("JavaScript testing capabilities initialized")
+            
             try:
                 # Navigate to page
                 self.driver.get(page.url)
@@ -203,6 +233,7 @@ class AccessibilityTester(LoggerMixin):
                 passes = []
                 incomplete = []
                 
+                # Run standard accessibility tests
                 for rule in self.rules:
                     try:
                         result = rule.test_function()
@@ -241,6 +272,36 @@ class AccessibilityTester(LoggerMixin):
                             'id': rule.rule_id,
                             'description': rule.description,
                             'reason': f'Test error: {str(e)}'
+                        })
+                
+                # Run CSS accessibility tests if enabled
+                if self.css_testing_enabled and self.css_analyzer:
+                    try:
+                        css_violations, css_passes = self._run_css_tests()
+                        violations.extend(css_violations)
+                        passes.extend(css_passes)
+                        self.logger.info(f"CSS tests completed. Additional violations: {len(css_violations)}, passes: {len(css_passes)}")
+                    except Exception as e:
+                        self.logger.error(f"Error running CSS tests: {e}")
+                        incomplete.append({
+                            'id': 'css-testing',
+                            'description': 'CSS accessibility testing',
+                            'reason': f'CSS testing error: {str(e)}'
+                        })
+                
+                # Run JavaScript accessibility tests if enabled
+                if self.js_testing_enabled and self.js_analyzer:
+                    try:
+                        js_violations, js_passes = self._run_js_tests()
+                        violations.extend(js_violations)
+                        passes.extend(js_passes)
+                        self.logger.info(f"JavaScript tests completed. Additional violations: {len(js_violations)}, passes: {len(js_passes)}")
+                    except Exception as e:
+                        self.logger.error(f"Error running JavaScript tests: {e}")
+                        incomplete.append({
+                            'id': 'js-testing',
+                            'description': 'JavaScript accessibility testing',
+                            'reason': f'JavaScript testing error: {str(e)}'
                         })
                 
                 # Create test result
@@ -714,3 +775,294 @@ class AccessibilityTester(LoggerMixin):
                 'status': 'incomplete',
                 'reason': f'Error checking lang attribute: {str(e)}'
             }
+    
+    def _run_css_tests(self) -> tuple[List[AccessibilityViolation], List[AccessibilityPass]]:
+        """
+        Run comprehensive CSS accessibility tests
+        
+        Returns:
+            Tuple of (violations, passes) from CSS testing
+        """
+        violations = []
+        passes = []
+        
+        try:
+            # Find all interactive and important elements to test
+            test_selectors = [
+                'a', 'button', 'input', 'select', 'textarea', '[tabindex]',
+                'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                'p', 'span', 'div[role]', '[role="button"]', '[role="link"]'
+            ]
+            
+            elements_tested = 0
+            for selector in test_selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    
+                    # Limit elements tested for performance (max 5 per selector)
+                    for element in elements[:5]:
+                        try:
+                            # Run all CSS rules against this element
+                            css_results = self.css_rules.test_all_css_rules(
+                                self.css_analyzer, element
+                            )
+                            
+                            # Process results
+                            for rule_id, result in css_results.get('rule_results', {}).items():
+                                rule_info = result.get('rule_info', {})
+                                
+                                if result.get('status') == 'fail':
+                                    violation = AccessibilityViolation(
+                                        violation_id=f"css-{rule_id}",
+                                        impact=rule_info.get('severity', 'moderate'),
+                                        description=f"CSS: {rule_info.get('name', rule_id)}",
+                                        help=rule_info.get('description', ''),
+                                        help_url='',
+                                        nodes=[{
+                                            'target': [element.tag_name.lower()],
+                                            'html': element.get_attribute('outerHTML')[:200],
+                                            'css_context': result.get('details', {}),
+                                            'suggested_fixes': result.get('suggested_fixes', [])
+                                        }]
+                                    )
+                                    violations.append(violation)
+                                    
+                                elif result.get('status') == 'pass':
+                                    pass_result = AccessibilityPass(
+                                        rule_id=f"css-{rule_id}",
+                                        description=f"CSS: {rule_info.get('name', rule_id)}",
+                                        help=rule_info.get('description', ''),
+                                        help_url='',
+                                        nodes=[{
+                                            'target': [element.tag_name.lower()],
+                                            'html': element.get_attribute('outerHTML')[:100]
+                                        }]
+                                    )
+                                    passes.append(pass_result)
+                            
+                            elements_tested += 1
+                            
+                            # Limit total elements tested for performance
+                            if elements_tested >= 50:
+                                break
+                                
+                        except Exception as e:
+                            self.logger.warning(f"Error testing CSS rules on element: {e}")
+                            continue
+                    
+                    if elements_tested >= 50:
+                        break
+                        
+                except Exception as e:
+                    self.logger.warning(f"Error finding elements with selector {selector}: {e}")
+                    continue
+            
+            self.logger.info(f"CSS testing completed on {elements_tested} elements")
+            
+        except Exception as e:
+            self.logger.error(f"Error in CSS testing: {e}")
+            # Add a general CSS testing failure
+            violation = AccessibilityViolation(
+                violation_id="css-testing-error",
+                impact="minor",
+                description="CSS accessibility testing encountered an error",
+                help=f"CSS testing failed: {str(e)}",
+                help_url='',
+                nodes=[{'target': ['body'], 'html': 'CSS testing error'}]
+            )
+            violations.append(violation)
+        
+        return violations, passes
+    
+    def test_css_modifications(self, page_id: str, css_modifications: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Test CSS modifications for accessibility impact
+        
+        Args:
+            page_id: Page ID to test modifications on
+            css_modifications: Dictionary of CSS modifications to test
+            
+        Returns:
+            Test results with before/after analysis
+        """
+        if not self.css_modifier:
+            return {
+                'error': 'CSS modification testing not available. Driver not initialized or CSS testing disabled.'
+            }
+        
+        try:
+            # Get the page
+            page = self.page_repo.get_page(page_id)
+            if not page:
+                return {'error': f'Page not found: {page_id}'}
+            
+            # Navigate to the page
+            self.driver.get(page.url)
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+            
+            # Run CSS modification tests
+            modification_results = self.css_modifier.test_css_changes(page_id, css_modifications)
+            
+            # Store results in database if successful
+            if modification_results and not modification_results.get('error'):
+                self.logger.info(f"CSS modification test completed for page {page_id}")
+            
+            return modification_results
+            
+        except Exception as e:
+            self.logger.error(f"Error testing CSS modifications: {e}")
+            return {'error': str(e)}
+    
+    def _run_js_tests(self) -> tuple[List[AccessibilityViolation], List[AccessibilityPass]]:
+        """
+        Run comprehensive JavaScript accessibility tests
+        
+        Returns:
+            Tuple of (violations, passes) from JavaScript testing
+        """
+        violations = []
+        passes = []
+        
+        try:
+            # Get comprehensive JavaScript analysis
+            page_js_analysis = self.js_analyzer.analyze_page_javascript()
+            
+            if page_js_analysis.get('error'):
+                # Add error violation if JS analysis failed
+                violation = AccessibilityViolation(
+                    violation_id="js-analysis-error",
+                    impact="minor",
+                    description="JavaScript accessibility analysis failed",
+                    help=f"JS analysis error: {page_js_analysis['error']}",
+                    help_url='',
+                    nodes=[{'target': ['body'], 'html': 'JavaScript analysis error'}]
+                )
+                violations.append(violation)
+                return violations, passes
+            
+            # Run JavaScript accessibility rules
+            js_rule_results = self.js_checker.test_all_js_rules(self.js_analyzer, page_js_analysis)
+            
+            # Process rule results
+            for rule_id, result in js_rule_results.get('rule_results', {}).items():
+                rule_info = result.get('rule_info', {})
+                
+                if result.get('status') == 'fail':
+                    violation = AccessibilityViolation(
+                        violation_id=f"js-{rule_id}",
+                        impact=rule_info.get('severity', 'moderate'),
+                        description=f"JavaScript: {rule_info.get('name', rule_id)}",
+                        help=rule_info.get('description', ''),
+                        help_url='',
+                        nodes=[{
+                            'target': ['script'],
+                            'html': 'JavaScript accessibility issue',
+                            'js_context': result.get('details', {}),
+                            'recommendations': result.get('recommendations', [])
+                        }]
+                    )
+                    violations.append(violation)
+                    
+                elif result.get('status') == 'pass':
+                    pass_result = AccessibilityPass(
+                        rule_id=f"js-{rule_id}",
+                        description=f"JavaScript: {rule_info.get('name', rule_id)}",
+                        help=rule_info.get('description', ''),
+                        help_url='',
+                        nodes=[{
+                            'target': ['script'],
+                            'html': 'JavaScript accessibility test passed'
+                        }]
+                    )
+                    passes.append(pass_result)
+            
+            # Add overall JavaScript accessibility score as a pass/violation
+            js_score = page_js_analysis.get('accessibility_score', {})
+            score_value = js_score.get('score', 0)
+            
+            if score_value < 60:
+                violation = AccessibilityViolation(
+                    violation_id="js-overall-score",
+                    impact="serious",
+                    description=f"JavaScript accessibility score too low: {score_value}/100",
+                    help=f"Overall JavaScript accessibility needs improvement. Grade: {js_score.get('grade', 'F')}",
+                    help_url='',
+                    nodes=[{
+                        'target': ['script'],
+                        'html': f'JavaScript accessibility score: {score_value}',
+                        'score_details': js_score
+                    }]
+                )
+                violations.append(violation)
+            else:
+                pass_result = AccessibilityPass(
+                    rule_id="js-overall-score",
+                    description=f"JavaScript accessibility score acceptable: {score_value}/100",
+                    help=f"JavaScript accessibility grade: {js_score.get('grade', 'A')}",
+                    help_url='',
+                    nodes=[{
+                        'target': ['script'],
+                        'html': f'JavaScript accessibility score: {score_value}'
+                    }]
+                )
+                passes.append(pass_result)
+            
+            self.logger.info(f"JavaScript testing completed. Score: {score_value}/100, Issues found: {len(violations)}")
+            
+        except Exception as e:
+            self.logger.error(f"Error in JavaScript testing: {e}")
+            # Add a general JavaScript testing failure
+            violation = AccessibilityViolation(
+                violation_id="js-testing-error",
+                impact="minor",
+                description="JavaScript accessibility testing encountered an error",
+                help=f"JavaScript testing failed: {str(e)}",
+                help_url='',
+                nodes=[{'target': ['body'], 'html': 'JavaScript testing error'}]
+            )
+            violations.append(violation)
+        
+        return violations, passes
+    
+    def test_js_dynamic_scenarios(self, page_id: str, test_scenarios: List[str] = None) -> Dict[str, Any]:
+        """
+        Test JavaScript dynamic scenarios for accessibility
+        
+        Args:
+            page_id: Page ID to test dynamic scenarios on
+            test_scenarios: List of specific scenarios to test
+            
+        Returns:
+            Dynamic test results
+        """
+        if not self.js_dynamic_tester:
+            return {
+                'error': 'JavaScript dynamic testing not available. Driver not initialized or JS testing disabled.'
+            }
+        
+        try:
+            # Get the page
+            page = self.page_repo.get_page(page_id)
+            if not page:
+                return {'error': f'Page not found: {page_id}'}
+            
+            # Navigate to the page
+            self.driver.get(page.url)
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+            
+            # Run dynamic JavaScript tests
+            dynamic_results = self.js_dynamic_tester.run_dynamic_tests(page_id, test_scenarios)
+            
+            # Store results in database if successful
+            if dynamic_results and not dynamic_results.get('error'):
+                self.logger.info(f"JavaScript dynamic test completed for page {page_id}")
+            
+            return dynamic_results
+            
+        except Exception as e:
+            self.logger.error(f"Error testing JavaScript dynamic scenarios: {e}")
+            return {'error': str(e)}

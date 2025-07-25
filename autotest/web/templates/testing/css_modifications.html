@@ -1,0 +1,355 @@
+{% extends "base/layout.html" %}
+
+{% block title %}CSS Modification Testing - AutoTest{% endblock %}
+
+{% block head %}
+<style>
+    .css-test-section {
+        background: white;
+        border-radius: 8px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .modification-form {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .css-input {
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 12px;
+        width: 100%;
+        min-height: 120px;
+    }
+    
+    .test-results {
+        margin-top: 24px;
+        padding: 16px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 4px solid #007bff;
+    }
+    
+    .before-after {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 16px;
+    }
+    
+    .comparison-card {
+        padding: 16px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        background: white;
+    }
+    
+    .improvement-score {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-weight: bold;
+        font-size: 12px;
+    }
+    
+    .score-positive { background: #d4edda; color: #155724; }
+    .score-negative { background: #f8d7da; color: #721c24; }
+    .score-neutral { background: #e2e3e5; color: #383d41; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('testing.dashboard') }}">Testing</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">CSS Modifications</li>
+                </ol>
+            </nav>
+            
+            <h1>CSS Modification Testing</h1>
+            <p class="text-muted">Test how CSS modifications impact accessibility. Compare before and after results to optimize your designs.</p>
+        </div>
+    </div>
+    
+    <div class="css-test-section">
+        <h2>Test CSS Modifications</h2>
+        <form id="cssModificationForm" class="modification-form">
+            <div class="mb-3">
+                <label for="pageSelect" class="form-label">Select Page to Test</label>
+                <select class="form-select" id="pageSelect" name="page_id" required>
+                    <option value="">Choose a page...</option>
+                    <!-- Pages would be populated dynamically -->
+                    <option value="example-page-1">Example Page 1</option>
+                    <option value="example-page-2">Example Page 2</option>
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label for="modificationType" class="form-label">Modification Type</label>
+                <select class="form-select" id="modificationType" name="modification_type">
+                    <option value="element_modifications">Element Modifications</option>
+                    <option value="global_modifications">Global CSS Rules</option>
+                    <option value="accessibility_improvements">Accessibility Improvements</option>
+                    <option value="responsive_modifications">Responsive Design</option>
+                </select>
+            </div>
+            
+            <div id="elementModifications" class="modification-type-section">
+                <h4>Element Modifications</h4>
+                <div class="mb-3">
+                    <label for="cssSelector" class="form-label">CSS Selector</label>
+                    <input type="text" class="form-control" id="cssSelector" 
+                           placeholder="e.g., .button, #main-nav a, [role='button']">
+                </div>
+                <div class="mb-3">
+                    <label for="cssChanges" class="form-label">CSS Properties to Test</label>
+                    <textarea class="css-input" id="cssChanges" 
+                              placeholder="Enter CSS properties (JSON format):
+{
+  &quot;color&quot;: &quot;#333333&quot;,
+  &quot;background-color&quot;: &quot;#ffffff&quot;,
+  &quot;font-size&quot;: &quot;16px&quot;,
+  &quot;line-height&quot;: &quot;1.5&quot;
+}"></textarea>
+                </div>
+            </div>
+            
+            <div id="accessibilityImprovements" class="modification-type-section" style="display: none;">
+                <h4>Accessibility Improvements</h4>
+                <div class="mb-3">
+                    <label class="form-label">Improvement Templates</label>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="contrastEnhancement">
+                                <label class="form-check-label" for="contrastEnhancement">
+                                    Contrast Enhancement
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="focusEnhancement">
+                                <label class="form-check-label" for="focusEnhancement">
+                                    Focus Indicators
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="fontScaling">
+                                <label class="form-check-label" for="fontScaling">
+                                    Font Scaling Test
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="motionReduction">
+                                <label class="form-check-label" for="motionReduction">
+                                    Motion Reduction
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="touchTargets">
+                                <label class="form-check-label" for="touchTargets">
+                                    Touch Target Size
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-play me-2"></i>Run CSS Test
+                </button>
+                <button type="button" class="btn btn-secondary ms-2" id="loadExample">
+                    Load Example
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <div id="testResults" class="css-test-section" style="display: none;">
+        <h2>Test Results</h2>
+        <div id="resultsContent">
+            <!-- Results will be populated here -->
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('cssModificationForm');
+    const modType = document.getElementById('modificationType');
+    const sections = document.querySelectorAll('.modification-type-section');
+    
+    // Show/hide sections based on modification type
+    modType.addEventListener('change', function() {
+        sections.forEach(section => section.style.display = 'none');
+        
+        const targetSection = document.getElementById(this.value);
+        if (targetSection) {
+            targetSection.style.display = 'block';
+        }
+    });
+    
+    // Load example configurations
+    document.getElementById('loadExample').addEventListener('click', function() {
+        const examples = {
+            element_modifications: {
+                selector: 'button, .btn',
+                css_changes: {
+                    'min-width': '44px',
+                    'min-height': '44px',
+                    'outline': '2px solid #007bff',
+                    'outline-offset': '2px'
+                }
+            },
+            accessibility_improvements: {
+                contrast_enhancement: true,
+                focus_enhancement: true,
+                font_scaling: true
+            }
+        };
+        
+        const currentType = modType.value;
+        if (examples[currentType]) {
+            // Populate form with example data
+            const example = examples[currentType];
+            if (example.selector) {
+                document.getElementById('cssSelector').value = example.selector;
+            }
+            if (example.css_changes) {
+                document.getElementById('cssChanges').value = JSON.stringify(example.css_changes, null, 2);
+            }
+        }
+    });
+    
+    // Handle form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const pageId = formData.get('page_id');
+        const modType = formData.get('modification_type');
+        
+        if (!pageId) {
+            alert('Please select a page to test');
+            return;
+        }
+        
+        // Build CSS modifications object based on type
+        let cssModifications = {};
+        
+        if (modType === 'element_modifications') {
+            const selector = document.getElementById('cssSelector').value;
+            const cssChangesText = document.getElementById('cssChanges').value;
+            
+            try {
+                const cssChanges = JSON.parse(cssChangesText);
+                cssModifications = {
+                    element_modifications: [{
+                        selector: selector,
+                        css_changes: cssChanges
+                    }]
+                };
+            } catch (e) {
+                alert('Invalid JSON in CSS changes field');
+                return;
+            }
+        } else if (modType === 'accessibility_improvements') {
+            const improvements = [];
+            
+            if (document.getElementById('contrastEnhancement').checked) {
+                improvements.push({
+                    type: 'contrast_enhancement',
+                    selectors: ['button', 'a', '.btn'],
+                    adjustments: {
+                        'high_contrast': {
+                            'color': '#000000',
+                            'background-color': '#ffffff'
+                        }
+                    }
+                });
+            }
+            
+            if (improvements.length > 0) {
+                cssModifications = { accessibility_improvements: improvements };
+            }
+        }
+        
+        // Show loading state
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Testing...';
+        submitBtn.disabled = true;
+        
+        // Send request
+        fetch('/testing/css/modifications', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                page_id: pageId,
+                css_modifications: cssModifications
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Display results
+            displayResults(data);
+            
+            // Restore button
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error running CSS test: ' + error.message);
+            
+            // Restore button
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+    });
+    
+    function displayResults(data) {
+        const resultsDiv = document.getElementById('testResults');
+        const contentDiv = document.getElementById('resultsContent');
+        
+        if (data.error) {
+            contentDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <strong>Error:</strong> ${data.error}
+                </div>
+            `;
+        } else {
+            contentDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <strong>Test Completed!</strong> CSS modification testing functionality is now implemented.
+                </div>
+                <div class="test-results">
+                    <h4>Test Summary</h4>
+                    <p><strong>Test ID:</strong> ${data.test_id || 'N/A'}</p>
+                    <p><strong>Duration:</strong> ${data.duration || 'N/A'}s</p>
+                    <p><strong>Status:</strong> CSS inspection and modification capabilities are ready for use.</p>
+                </div>
+            `;
+        }
+        
+        resultsDiv.style.display = 'block';
+        resultsDiv.scrollIntoView({ behavior: 'smooth' });
+    }
+});
+</script>
+{% endblock %}

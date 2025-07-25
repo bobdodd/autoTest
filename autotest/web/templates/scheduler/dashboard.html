@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scheduler Dashboard - {{ app_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="main-nav" role="navigation" aria-label="Main navigation">
+        <div class="nav-container">
+            <a href="{{ url_for('main.index') }}" class="nav-brand">{{ app_name }}</a>
+            <ul class="nav-menu">
+                <li><a href="{{ url_for('main.index') }}">Dashboard</a></li>
+                <li><a href="{{ url_for('projects.list_projects') }}">Projects</a></li>
+                <li><a href="{{ url_for('testing.dashboard') }}">Testing</a></li>
+                <li><a href="{{ url_for('scheduler.dashboard') }}" class="active">Scheduler</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main-content" role="main">
+        <div class="container">
+            <header class="page-header">
+                <h1>Scheduler Dashboard</h1>
+                <p>Manage and monitor scheduled accessibility tests</p>
+            </header>
+
+            <div class="dashboard-grid">
+                <!-- Statistics Cards -->
+                <section class="stats-grid" aria-labelledby="stats-heading">
+                    <h2 id="stats-heading" class="sr-only">Scheduler Statistics</h2>
+                    
+                    <div class="stat-card">
+                        <div class="stat-value">{{ stats.total_schedules or 0 }}</div>
+                        <div class="stat-label">Total Schedules</div>
+                    </div>
+                    
+                    <div class="stat-card stat-success">
+                        <div class="stat-value">{{ stats.active_schedules or 0 }}</div>
+                        <div class="stat-label">Active Schedules</div>
+                    </div>
+                    
+                    <div class="stat-card stat-warning">
+                        <div class="stat-value">{{ stats.paused_schedules or 0 }}</div>
+                        <div class="stat-label">Paused Schedules</div>
+                    </div>
+                    
+                    <div class="stat-card stat-info">
+                        <div class="stat-value">{{ stats.recent_executions_24h or 0 }}</div>
+                        <div class="stat-label">Executions (24h)</div>
+                    </div>
+                </section>
+
+                <!-- Quick Actions -->
+                <section class="quick-actions" aria-labelledby="actions-heading">
+                    <h2 id="actions-heading">Quick Actions</h2>
+                    <div class="action-buttons">
+                        <a href="{{ url_for('scheduler.create_schedule') }}" class="btn btn-primary">
+                            <span class="btn-icon">+</span>
+                            Create Schedule
+                        </a>
+                        <a href="{{ url_for('scheduler.list_schedules') }}" class="btn btn-secondary">
+                            <span class="btn-icon">📋</span>
+                            View All Schedules
+                        </a>
+                        <a href="{{ url_for('scheduler.schedule_templates') }}" class="btn btn-secondary">
+                            <span class="btn-icon">📝</span>
+                            Templates
+                        </a>
+                    </div>
+                </section>
+
+                <!-- Active Schedules -->
+                <section class="active-schedules" aria-labelledby="active-heading">
+                    <h2 id="active-heading">Active Schedules</h2>
+                    {% if active_schedules %}
+                        <div class="schedule-list">
+                            {% for schedule in active_schedules %}
+                                <div class="schedule-item">
+                                    <div class="schedule-info">
+                                        <h3 class="schedule-name">
+                                            <a href="{{ url_for('scheduler.view_schedule', schedule_id=schedule.schedule_id) }}">
+                                                {{ schedule.name }}
+                                            </a>
+                                        </h3>
+                                        <p class="schedule-description">{{ schedule.description or 'No description' }}</p>
+                                        <div class="schedule-meta">
+                                            <span class="schedule-frequency">{{ schedule.frequency | title }}</span>
+                                            <span class="schedule-next-run">
+                                                Next run: {{ schedule.next_run | format_datetime }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="schedule-actions">
+                                        <button class="btn btn-sm btn-secondary" 
+                                                onclick="pauseSchedule('{{ schedule.schedule_id }}')">
+                                            Pause
+                                        </button>
+                                        <button class="btn btn-sm btn-primary" 
+                                                onclick="executeSchedule('{{ schedule.schedule_id }}')">
+                                            Run Now
+                                        </button>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <p>No active schedules found.</p>
+                            <a href="{{ url_for('scheduler.create_schedule') }}" class="btn btn-primary">
+                                Create Your First Schedule
+                            </a>
+                        </div>
+                    {% endif %}
+                </section>
+
+                <!-- Recent Executions -->
+                <section class="recent-executions" aria-labelledby="executions-heading">
+                    <h2 id="executions-heading">Recent Executions</h2>
+                    {% if recent_executions %}
+                        <div class="execution-list">
+                            {% for execution in recent_executions %}
+                                <div class="execution-item">
+                                    <div class="execution-info">
+                                        <span class="execution-schedule">{{ execution.schedule_id }}</span>
+                                        <span class="execution-time">{{ execution.execution_time | format_datetime }}</span>
+                                    </div>
+                                    <div class="execution-status">
+                                        <span class="status-badge status-{{ execution.status }}">
+                                            {{ execution.status | title }}
+                                        </span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <p>No recent executions found.</p>
+                        </div>
+                    {% endif %}
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Schedule management functions
+        async function pauseSchedule(scheduleId) {
+            try {
+                const response = await fetch(`/scheduler/schedules/${scheduleId}/pause`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Schedule paused successfully');
+                    location.reload();
+                } else {
+                    alert('Failed to pause schedule: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error pausing schedule: ' + error.message);
+            }
+        }
+        
+        async function executeSchedule(scheduleId) {
+            try {
+                const response = await fetch(`/scheduler/schedules/${scheduleId}/execute`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Schedule executed successfully');
+                    location.reload();
+                } else {
+                    alert('Failed to execute schedule: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error executing schedule: ' + error.message);
+            }
+        }
+        
+        // Auto-refresh dashboard every 30 seconds
+        setTimeout(() => {
+            location.reload();
+        }, 30000);
+    </script>
+</body>
+</html>

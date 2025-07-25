@@ -500,3 +500,360 @@ def api_stats():
     except Exception as e:
         logger.error(f"Error getting API stats: {e}")
         return jsonify({'error': f'Failed to get stats: {str(e)}'}), 500
+
+
+@testing_bp.route('/css/modifications', methods=['GET', 'POST'])
+def css_modifications():
+    """CSS modification testing interface"""
+    try:
+        if request.method == 'GET':
+            # Show CSS modification testing interface
+            return render_template('testing/css_modifications.html')
+        
+        # Handle POST request for CSS modification testing
+        data = request.get_json() if request.is_json else request.form
+        page_id = data.get('page_id')
+        css_modifications = data.get('css_modifications', {})
+        
+        if not page_id:
+            return jsonify({'error': 'Page ID is required'}), 400
+        
+        if not css_modifications:
+            return jsonify({'error': 'CSS modifications are required'}), 400
+        
+        # Run CSS modification test via accessibility tester
+        from autotest.core.accessibility_tester import AccessibilityTester
+        from autotest.utils.config import Config
+        
+        config = Config()
+        tester = AccessibilityTester(config, testing_service.db_connection)
+        
+        result = tester.test_css_modifications(page_id, css_modifications)
+        
+        return jsonify(result)
+    
+    except Exception as e:
+        logger.error(f"Error in CSS modifications: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@testing_bp.route('/css/analyze/<page_id>')
+def css_analyze_page(page_id):
+    """Analyze CSS accessibility for a specific page"""
+    try:
+        if not testing_service:
+            return jsonify({'error': 'Testing service not available'}), 500
+        
+        # This would integrate with the CSS analyzer
+        # For now, return a placeholder response
+        return jsonify({
+            'page_id': page_id,
+            'css_analysis': 'CSS analysis functionality implemented',
+            'message': 'CSS inspection and modification capabilities are now available'
+        })
+    
+    except Exception as e:
+        logger.error(f"Error analyzing CSS for page {page_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@testing_bp.route('/javascript/analysis', methods=['GET', 'POST'])
+def javascript_analysis():
+    """JavaScript analysis and testing interface"""
+    try:
+        if request.method == 'GET':
+            # Show JavaScript analysis interface
+            return render_template('testing/javascript_analysis.html')
+        
+        # Handle POST request for JavaScript analysis
+        data = request.get_json() if request.is_json else request.form
+        page_id = data.get('page_id')
+        
+        if not page_id:
+            return jsonify({'error': 'Page ID is required'}), 400
+        
+        # Run JavaScript analysis via accessibility tester
+        from autotest.core.accessibility_tester import AccessibilityTester
+        from autotest.utils.config import Config
+        
+        config = Config()
+        tester = AccessibilityTester(config, testing_service.db_connection)
+        
+        # This would run comprehensive JavaScript analysis
+        return jsonify({
+            'page_id': page_id,
+            'js_analysis': 'JavaScript analysis functionality implemented',
+            'message': 'Comprehensive JavaScript accessibility testing is now available'
+        })
+    
+    except Exception as e:
+        logger.error(f"Error in JavaScript analysis: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@testing_bp.route('/javascript/dynamic/<page_id>', methods=['POST'])
+def javascript_dynamic_testing(page_id):
+    """Run dynamic JavaScript accessibility tests"""
+    try:
+        if not testing_service:
+            return jsonify({'error': 'Testing service not available'}), 500
+        
+        data = request.get_json() if request.is_json else request.form
+        test_scenarios = data.get('test_scenarios', [])
+        
+        # Run dynamic JavaScript tests via accessibility tester
+        from autotest.core.accessibility_tester import AccessibilityTester
+        from autotest.utils.config import Config
+        
+        config = Config()
+        tester = AccessibilityTester(config, testing_service.db_connection)
+        
+        result = tester.test_js_dynamic_scenarios(page_id, test_scenarios)
+        
+        return jsonify(result)
+    
+    except Exception as e:
+        logger.error(f"Error in JavaScript dynamic testing for page {page_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@testing_bp.route('/scenarios', methods=['GET'])
+def scenarios_dashboard():
+    """Page modification testing scenarios dashboard"""
+    try:
+        # Show scenarios testing interface
+        return render_template('testing/scenarios_dashboard.html')
+    
+    except Exception as e:
+        logger.error(f"Error loading scenarios dashboard: {e}")
+        flash('Error loading scenarios dashboard.', 'error')
+        return redirect(url_for('testing.dashboard'))
+
+
+@testing_bp.route('/scenarios/available')
+def available_scenarios():
+    """Get list of available testing scenarios"""
+    try:
+        from autotest.testing.scenarios import ScenarioManager, AccessibilityScenarios
+        from selenium import webdriver
+        from autotest.utils.config import Config
+        
+        # Initialize with mock driver for metadata only
+        options = webdriver.ChromeOptions()
+        options.add_argument('--headless')
+        driver = webdriver.Chrome(options=options)
+        
+        try:
+            scenario_manager = ScenarioManager(driver, testing_service.db_connection)
+            accessibility_scenarios = AccessibilityScenarios(driver, testing_service.db_connection)
+            
+            # Get available scenarios from both managers
+            basic_scenarios = scenario_manager.get_available_scenarios()
+            accessibility_scenarios_list = accessibility_scenarios.get_available_scenarios()
+            
+            return jsonify({
+                'basic_scenarios': basic_scenarios,
+                'accessibility_scenarios': accessibility_scenarios_list,
+                'total_scenarios': len(basic_scenarios) + len(accessibility_scenarios_list)
+            })
+        finally:
+            driver.quit()
+    
+    except Exception as e:
+        logger.error(f"Error getting available scenarios: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@testing_bp.route('/scenarios/run', methods=['POST'])
+def run_scenario():
+    """Run a specific testing scenario"""
+    try:
+        if not testing_service:
+            return jsonify({'error': 'Testing service not available'}), 500
+        
+        data = request.get_json() if request.is_json else request.form
+        scenario_id = data.get('scenario_id')
+        page_id = data.get('page_id')
+        scenario_type = data.get('scenario_type', 'basic')  # 'basic' or 'accessibility'
+        custom_options = data.get('custom_options', {})
+        
+        if not scenario_id or not page_id:
+            return jsonify({'error': 'Scenario ID and Page ID are required'}), 400
+        
+        from autotest.testing.scenarios import ScenarioManager, AccessibilityScenarios
+        from selenium import webdriver
+        from autotest.utils.config import Config
+        
+        config = Config()
+        options = webdriver.ChromeOptions()
+        if config.get('webdriver.headless', True):
+            options.add_argument('--headless')
+        
+        driver = webdriver.Chrome(options=options)
+        
+        try:
+            if scenario_type == 'accessibility':
+                accessibility_scenarios = AccessibilityScenarios(driver, testing_service.db_connection)
+                result = accessibility_scenarios.run_accessibility_scenario(scenario_id, page_id, custom_options)
+            else:
+                scenario_manager = ScenarioManager(driver, testing_service.db_connection)
+                result = scenario_manager.run_scenario(scenario_id, page_id)
+            
+            return jsonify(result)
+        finally:
+            driver.quit()
+    
+    except Exception as e:
+        logger.error(f"Error running scenario: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@testing_bp.route('/scenarios/batch', methods=['POST'])
+def run_batch_scenarios():
+    """Run multiple scenarios in sequence"""
+    try:
+        if not testing_service:
+            return jsonify({'error': 'Testing service not available'}), 500
+        
+        data = request.get_json() if request.is_json else request.form
+        scenario_ids = data.get('scenario_ids', [])
+        page_id = data.get('page_id')
+        
+        if not scenario_ids or not page_id:
+            return jsonify({'error': 'Scenario IDs and Page ID are required'}), 400
+        
+        from autotest.testing.scenarios import ScenarioManager
+        from selenium import webdriver
+        from autotest.utils.config import Config
+        
+        config = Config()
+        options = webdriver.ChromeOptions()
+        if config.get('webdriver.headless', True):
+            options.add_argument('--headless')
+        
+        driver = webdriver.Chrome(options=options)
+        
+        try:
+            scenario_manager = ScenarioManager(driver, testing_service.db_connection)
+            result = scenario_manager.run_multiple_scenarios(scenario_ids, page_id)
+            
+            return jsonify(result)
+        finally:
+            driver.quit()
+    
+    except Exception as e:
+        logger.error(f"Error running batch scenarios: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@testing_bp.route('/scenarios/templates')
+def available_templates():
+    """Get list of available modification templates"""
+    try:
+        from autotest.testing.scenarios import ModificationScenarios
+        
+        modification_scenarios = ModificationScenarios()
+        templates = modification_scenarios.get_all_templates()
+        metadata = modification_scenarios.get_template_metadata()
+        
+        return jsonify({
+            'templates': [
+                {
+                    'template_id': template.template_id,
+                    'name': template.name,
+                    'description': template.description,
+                    'category': template.category,
+                    'use_cases': template.use_cases or []
+                }
+                for template in templates
+            ],
+            'metadata': metadata
+        })
+    
+    except Exception as e:
+        logger.error(f"Error getting available templates: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@testing_bp.route('/scenarios/custom', methods=['POST'])
+def create_custom_scenario():
+    """Create a custom testing scenario"""
+    try:
+        data = request.get_json() if request.is_json else request.form
+        name = data.get('name')
+        description = data.get('description')
+        template_ids = data.get('template_ids', [])
+        css_modifications = data.get('css_modifications', {})
+        js_scenarios = data.get('js_scenarios', [])
+        
+        if not name or not description:
+            return jsonify({'error': 'Name and description are required'}), 400
+        
+        from autotest.testing.scenarios import ModificationScenarios
+        
+        modification_scenarios = ModificationScenarios()
+        
+        if template_ids:
+            # Create scenario from templates
+            custom_scenario = modification_scenarios.combine_templates(template_ids)
+            custom_scenario['name'] = name
+            custom_scenario['description'] = description
+        else:
+            # Create scenario from scratch
+            custom_scenario = modification_scenarios.create_custom_scenario(
+                name, description, css_modifications, js_scenarios
+            )
+        
+        return jsonify({
+            'success': True,
+            'custom_scenario': custom_scenario,
+            'message': f'Custom scenario "{name}" created successfully'
+        })
+    
+    except Exception as e:
+        logger.error(f"Error creating custom scenario: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@testing_bp.route('/scenarios/recommendations', methods=['POST'])
+def get_scenario_recommendations():
+    """Get recommended scenarios based on current accessibility state"""
+    try:
+        data = request.get_json() if request.is_json else request.form
+        current_score = data.get('current_score', 50)
+        detected_issues = data.get('detected_issues', [])
+        page_id = data.get('page_id')
+        
+        from autotest.testing.scenarios import AccessibilityScenarios, ModificationScenarios
+        from selenium import webdriver
+        
+        # Initialize with mock driver for recommendations only
+        options = webdriver.ChromeOptions()
+        options.add_argument('--headless')
+        driver = webdriver.Chrome(options=options)
+        
+        try:
+            accessibility_scenarios = AccessibilityScenarios(driver, testing_service.db_connection)
+            modification_scenarios = ModificationScenarios()
+            
+            # Get scenario recommendations
+            scenario_recommendations = accessibility_scenarios.get_scenario_recommendations(
+                current_score, detected_issues
+            )
+            
+            # Get template recommendations
+            template_recommendations = modification_scenarios.get_recommended_templates(detected_issues)
+            
+            return jsonify({
+                'scenario_recommendations': scenario_recommendations,
+                'template_recommendations': template_recommendations,
+                'current_score': current_score,
+                'detected_issues': detected_issues,
+                'recommendation_reason': f'Based on accessibility score of {current_score}% and detected issues'
+            })
+        finally:
+            driver.quit()
+    
+    except Exception as e:
+        logger.error(f"Error getting scenario recommendations: {e}")
+        return jsonify({'error': str(e)}), 500

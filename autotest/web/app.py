@@ -15,6 +15,10 @@ from autotest.core.scraper import WebScraper
 from autotest.core.accessibility_tester import AccessibilityTester
 from autotest.testing.rules.rule_engine import RuleEngine
 from autotest.testing.reporters.severity_manager import SeverityManager
+from autotest.services.scheduler_service import SchedulerService
+from autotest.services.testing_service import TestingService
+from autotest.services.history_service import HistoryService
+from autotest.services.reporting_service import ReportingService
 
 
 def create_app(config: Optional[Config] = None) -> Flask:
@@ -57,6 +61,12 @@ def create_app(config: Optional[Config] = None) -> Flask:
     rule_engine = RuleEngine(config)
     severity_manager = SeverityManager()
     
+    # Initialize services
+    testing_service = TestingService(config, db_connection)
+    scheduler_service = SchedulerService(config, db_connection, testing_service)
+    history_service = HistoryService(config, db_connection)
+    reporting_service = ReportingService(config, db_connection)
+    
     # Store managers in app context
     app.config['DB_CONNECTION'] = db_connection
     app.config['PROJECT_MANAGER'] = project_manager
@@ -65,18 +75,39 @@ def create_app(config: Optional[Config] = None) -> Flask:
     app.config['ACCESSIBILITY_TESTER'] = accessibility_tester
     app.config['RULE_ENGINE'] = rule_engine
     app.config['SEVERITY_MANAGER'] = severity_manager
+    app.config['TESTING_SERVICE'] = testing_service
+    app.config['SCHEDULER_SERVICE'] = scheduler_service
+    app.config['HISTORY_SERVICE'] = history_service
+    app.config['REPORTING_SERVICE'] = reporting_service
     
     # Register blueprints
     from autotest.web.routes.main import main_bp
     from autotest.web.routes.projects import projects_bp
     from autotest.web.routes.websites import websites_bp
     from autotest.web.routes.testing import testing_bp
+    from autotest.web.routes.scheduler import scheduler_bp
+    from autotest.web.routes.history import history_bp
+    from autotest.web.routes.reports import reports_bp
     from autotest.web.routes.api import api_bp
+    
+    # Initialize blueprint services
+    from autotest.web.routes.testing import init_testing_service
+    from autotest.web.routes.scheduler import init_scheduler_service
+    from autotest.web.routes.history import init_history_service
+    from autotest.web.routes.reports import init_reporting_service
+    
+    init_testing_service(config, db_connection)
+    init_scheduler_service(config, db_connection, testing_service)
+    init_history_service(config, db_connection)
+    init_reporting_service(config, db_connection)
     
     app.register_blueprint(main_bp)
     app.register_blueprint(projects_bp, url_prefix='/projects')
     app.register_blueprint(websites_bp, url_prefix='/websites')
     app.register_blueprint(testing_bp, url_prefix='/testing')
+    app.register_blueprint(scheduler_bp, url_prefix='/scheduler')
+    app.register_blueprint(history_bp, url_prefix='/history')
+    app.register_blueprint(reports_bp, url_prefix='/reports')
     app.register_blueprint(api_bp, url_prefix='/api')
     
     # Error handlers
@@ -153,7 +184,15 @@ def create_app(config: Optional[Config] = None) -> Flask:
     # Cleanup on app teardown
     @app.teardown_appcontext
     def close_db(error):
-        """Close database connection on app teardown"""
+        """Close database connection and scheduler on app teardown"""
+        # Stop scheduler service
+        if hasattr(app.config, 'SCHEDULER_SERVICE'):
+            try:
+                app.config['SCHEDULER_SERVICE'].stop_scheduler()
+            except Exception as e:
+                logger.warning(f"Error stopping scheduler service: {e}")
+        
+        # Close database connection
         if hasattr(app.config, 'DB_CONNECTION'):
             try:
                 app.config['DB_CONNECTION'].disconnect()

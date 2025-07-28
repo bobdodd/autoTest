@@ -67,8 +67,8 @@ class TestingService(LoggerMixin):
         
         # Initialize managers
         self.accessibility_tester = AccessibilityTester(config, db_connection)
-        self.project_manager = ProjectManager()
-        self.website_manager = WebsiteManager()
+        self.project_manager = ProjectManager(db_connection)
+        self.website_manager = WebsiteManager(db_connection)
         self.scraper = WebScraper(config, db_connection)
         
         # Job management
@@ -347,7 +347,29 @@ class TestingService(LoggerMixin):
             if not website:
                 raise ValueError(f"Website not found: {website_id}")
             
-            page_ids = [page.get('page_id') for page in website.get('pages', []) if page.get('page_id')]
+            # We need to find the project_id to get pages
+            # The website object doesn't store the project_id, so we need to search for it
+            from autotest.models.project import ProjectRepository
+            project_repo = ProjectRepository(self.db_connection)
+            projects = project_repo.get_all_projects()
+            
+            project_id = None
+            for project in projects:
+                if project.get_website(website_id):
+                    project_id = project.project_id
+                    break
+            
+            if not project_id:
+                raise ValueError(f"Project not found for website: {website_id}")
+            
+            # Use website manager to get pages for this website
+            pages_result = self.website_manager.get_website_pages(project_id, website_id)
+            
+            if not pages_result.get('success'):
+                raise ValueError(f"Failed to get pages for website: {pages_result.get('error')}")
+            
+            pages_data = pages_result.get('pages', [])
+            page_ids = [page_data.get('page_id') for page_data in pages_data if page_data.get('page_id')]
             
             if not page_ids:
                 raise ValueError("No pages found in website")
@@ -377,18 +399,34 @@ class TestingService(LoggerMixin):
             Job ID for tracking the test
         """
         try:
-            project = self.project_manager.get_project(project_id)
-            if not project:
+            project_result = self.project_manager.get_project(project_id)
+            if not project_result.get('success'):
                 raise ValueError(f"Project not found: {project_id}")
             
-            # Collect all page IDs from all websites
+            project = project_result['project']
+            
+            # Collect all page IDs from all websites using the website manager
             all_page_ids = []
             for website_data in project.get('websites', []):
-                website = self.website_manager.get_website(website_data.get('website_id'))
-                if website:
-                    page_ids = [page.get('page_id') for page in website.get('pages', []) if page.get('page_id')]
-                    all_page_ids.extend(page_ids)
+                website_id = website_data.get('website_id')
+                if website_id:
+                    # Use website manager to get pages for this website  
+                    pages_result = self.website_manager.get_website_pages(project_id, website_id)
+                    
+                    if pages_result.get('success'):
+                        pages_data = pages_result.get('pages', [])
+                        
+                        # Extract page IDs
+                        for page_data in pages_data:
+                            page_id = page_data.get('page_id')
+                            if page_id:
+                                all_page_ids.append(page_id)
+                        
+                        self.logger.info(f"Found {len(pages_data)} pages for website {website_id}")
+                    else:
+                        self.logger.warning(f"Failed to get pages for website {website_id}: {pages_result.get('error')}")
             
+            self.logger.info(f"Total pages found for project {project_id}: {len(all_page_ids)}")
             if not all_page_ids:
                 raise ValueError("No pages found in project")
             

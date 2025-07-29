@@ -1,0 +1,478 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Edit Page - {{ page.title or page.url }} - {{ website.name }} - {{ project.name }} - {{ app_name }}{% endblock %}
+
+{% block meta_description %}Edit page details for {{ page.title or page.url }} in {{ website.name }}.{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb" class="breadcrumb">
+    <div class="container">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('main.index') }}" class="breadcrumb-link">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.list_projects') }}" class="breadcrumb-link">Projects</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('projects.view_project', project_id=project.project_id) }}" class="breadcrumb-link">{{ project.name }}</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('websites.view_website', project_id=project.project_id, website_id=website.website_id) }}" class="breadcrumb-link">{{ website.name }}</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('pages.list_pages', project_id=project.project_id, website_id=website.website_id) }}" class="breadcrumb-link">Pages</a>
+            </li>
+            <li class="breadcrumb-item" aria-current="page">
+                <span class="breadcrumb-current">Edit Page</span>
+            </li>
+        </ol>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Page header -->
+    <header class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">Edit Page</h1>
+            <p class="page-description">
+                Update the details for this page in <strong>{{ website.name }}</strong>.
+            </p>
+        </div>
+    </header>
+    
+    <!-- Page edit form -->
+    <div class="content-section">
+        <div class="form-container">
+            <form method="post" class="page-form" novalidate>
+                <!-- Page Information -->
+                <fieldset class="form-fieldset">
+                    <legend class="form-legend">Page Information</legend>
+                    
+                    <div class="form-group">
+                        <label for="url" class="form-label required">
+                            Page URL
+                            <span class="required-indicator" aria-label="Required field">*</span>
+                        </label>
+                        <input 
+                            type="url" 
+                            id="url" 
+                            name="url" 
+                            class="form-input"
+                            value="{{ form_data.url if form_data else page.url }}"
+                            required
+                            aria-describedby="url-help"
+                        >
+                        <div id="url-help" class="form-help">
+                            The complete URL of the page to test (must start with http:// or https://).
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="title" class="form-label">
+                            Page Title
+                            <span class="optional-indicator">(Optional)</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="title" 
+                            name="title" 
+                            class="form-input"
+                            value="{{ form_data.title if form_data else (page.title or '') }}"
+                            maxlength="200"
+                            aria-describedby="title-help"
+                            autocomplete="off"
+                        >
+                        <div id="title-help" class="form-help">
+                            A descriptive title for the page. If left blank, will be extracted automatically during testing.
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description" class="form-label">
+                            Description
+                            <span class="optional-indicator">(Optional)</span>
+                        </label>
+                        <textarea 
+                            id="description" 
+                            name="description" 
+                            class="form-textarea"
+                            rows="3"
+                            maxlength="500"
+                            aria-describedby="description-help"
+                        >{{ form_data.description if form_data else (page.description or '') }}</textarea>
+                        <div id="description-help" class="form-help">
+                            Additional context about this page, why it's important to test, or special considerations.
+                        </div>
+                    </div>
+                </fieldset>
+                
+                <!-- Page metadata (read-only) -->
+                <fieldset class="form-fieldset">
+                    <legend class="form-legend">Page Details</legend>
+                    
+                    <div class="metadata-grid">
+                        <div class="metadata-item">
+                            <dt class="metadata-label">Added</dt>
+                            <dd class="metadata-value">
+                                <time datetime="{{ page.created_date }}">
+                                    {{ page.created_date.strftime('%B %d, %Y at %I:%M %p') if page.created_date else 'Unknown' }}
+                                </time>
+                            </dd>
+                        </div>
+                        
+                        <div class="metadata-item">
+                            <dt class="metadata-label">Discovery Method</dt>
+                            <dd class="metadata-value">
+                                <span class="badge badge-{{ 'primary' if page.discovered_method == 'manual' else 'secondary' }}">
+                                    {{ page.discovered_method.title() if page.discovered_method else 'Unknown' }}
+                                </span>
+                            </dd>
+                        </div>
+                        
+                        <div class="metadata-item">
+                            <dt class="metadata-label">Page ID</dt>
+                            <dd class="metadata-value">
+                                <code class="page-id">{{ page.page_id }}</code>
+                            </dd>
+                        </div>
+                        
+                        {% if page.last_tested %}
+                            <div class="metadata-item">
+                                <dt class="metadata-label">Last Tested</dt>
+                                <dd class="metadata-value">
+                                    <time datetime="{{ page.last_tested }}">
+                                        {{ page.last_tested.strftime('%B %d, %Y at %I:%M %p') }}
+                                    </time>
+                                </dd>
+                            </div>
+                        {% endif %}
+                    </div>
+                </fieldset>
+                
+                <!-- Form actions -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                            <path d="M19 21H5A2 2 0 013 19V5A2 2 0 015 3H16L21 8V19A2 2 0 0119 21Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M17 21V13H7V21" stroke="currentColor" fill="none" stroke-width="2"/>
+                            <path d="M7 3V8H15" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        Update Page
+                    </button>
+                    <a href="{{ url_for('pages.list_pages', project_id=project.project_id, website_id=website.website_id) }}" class="btn btn-outline">
+                        <svg class="btn-icon" aria-hidden="true" width="20" height="20">
+                            <line x1="19" y1="12" x2="5" y2="12" stroke="currentColor" stroke-width="2"/>
+                            <polyline points="12,19 5,12 12,5" stroke="currentColor" fill="none" stroke-width="2"/>
+                        </svg>
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Help sidebar -->
+        <aside class="help-sidebar" aria-labelledby="help-title">
+            <h2 id="help-title" class="help-title">Editing Pages</h2>
+            
+            <div class="help-section">
+                <h3 class="help-section-title">URL Changes</h3>
+                <p class="help-text">
+                    Changing the URL will update where accessibility tests are performed for this page.
+                </p>
+            </div>
+            
+            <div class="help-section">
+                <h3 class="help-section-title">Page Title</h3>
+                <p class="help-text">
+                    The title helps identify the page in reports and listings. If left blank, it will be extracted automatically during testing.
+                </p>
+            </div>
+            
+            <div class="help-section">
+                <h3 class="help-section-title">Test History</h3>
+                <p class="help-text">
+                    Existing test results will remain associated with this page even after editing.
+                </p>
+            </div>
+        </aside>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Form container */
+.form-container {
+    max-width: 700px;
+}
+
+.page-form {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Fieldsets */
+.form-fieldset {
+    border: none;
+    margin: 0 0 var(--spacing-2xl) 0;
+    padding: 0;
+}
+
+.form-fieldset:last-of-type {
+    margin-bottom: 0;
+}
+
+.form-legend {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    padding: 0;
+}
+
+/* Form inputs */
+.form-group {
+    margin-bottom: var(--spacing-lg);
+}
+
+.form-label {
+    display: block;
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.required-indicator {
+    color: var(--color-danger);
+    font-weight: var(--font-weight-bold);
+}
+
+.optional-indicator {
+    color: var(--color-text-muted);
+    font-weight: var(--font-weight-normal);
+}
+
+.form-input,
+.form-textarea {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-family: inherit;
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-medium);
+    border-radius: var(--border-radius-md);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.form-input:focus,
+.form-textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+}
+
+.form-help {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin-top: var(--spacing-xs);
+    line-height: var(--line-height-relaxed);
+}
+
+/* Metadata grid */
+.metadata-grid {
+    display: grid;
+    gap: var(--spacing-md);
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    padding: var(--spacing-lg);
+    background-color: var(--color-bg-secondary);
+    border-radius: var(--border-radius-md);
+}
+
+.metadata-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.metadata-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+.metadata-value {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.page-id {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background-color: var(--color-bg-tertiary);
+    border-radius: var(--border-radius-sm);
+}
+
+.badge {
+    display: inline-block;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: var(--border-radius-sm);
+}
+
+.badge-primary {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.badge-secondary {
+    background-color: var(--color-text-muted);
+    color: white;
+}
+
+/* Form actions */
+.form-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border-light);
+}
+
+@media (max-width: 767px) {
+    .form-actions {
+        flex-direction: column;
+    }
+}
+
+/* Content layout */
+.content-section {
+    display: grid;
+    gap: var(--spacing-2xl);
+    grid-template-columns: 1fr 300px;
+    align-items: start;
+}
+
+@media (max-width: 1023px) {
+    .content-section {
+        grid-template-columns: 1fr;
+    }
+    
+    .help-sidebar {
+        order: -1;
+    }
+}
+
+/* Help sidebar */
+.help-sidebar {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    position: sticky;
+    top: var(--spacing-xl);
+}
+
+.help-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    margin-top: 0;
+}
+
+.help-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.help-section:last-of-type {
+    margin-bottom: 0;
+}
+
+.help-section-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    margin-top: 0;
+}
+
+.help-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-sm);
+}
+
+.help-text:last-child {
+    margin-bottom: 0;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// URL validation and formatting
+document.getElementById('url').addEventListener('blur', function() {
+    let url = this.value.trim();
+    if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+        // Auto-add https:// if no protocol specified
+        this.value = 'https://' + url;
+    }
+});
+
+// Form validation
+document.querySelector('.page-form').addEventListener('submit', function(e) {
+    const url = document.getElementById('url').value.trim();
+    
+    let hasErrors = false;
+    
+    // Clear previous error states
+    document.querySelectorAll('.form-input, .form-textarea').forEach(input => {
+        input.classList.remove('error');
+    });
+    
+    // Validate required fields
+    if (!url) {
+        document.getElementById('url').classList.add('error');
+        hasErrors = true;
+    } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        document.getElementById('url').classList.add('error');
+        hasErrors = true;
+    }
+    
+    if (hasErrors) {
+        e.preventDefault();
+        // Focus on first error field
+        const firstError = document.querySelector('.form-input.error, .form-textarea.error');
+        if (firstError) {
+            firstError.focus();
+        }
+    }
+});
+
+// Add error state styles
+const style = document.createElement('style');
+style.textContent = `
+    .form-input.error,
+    .form-textarea.error {
+        border-color: var(--color-danger);
+        box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2);
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

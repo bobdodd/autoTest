@@ -16,6 +16,7 @@ class Website:
     name: str
     url: str
     created_date: datetime.datetime
+    description: str = ""
     scraping_config: Dict[str, Any] = field(default_factory=lambda: {
         'max_pages': 100,
         'depth_limit': 3,
@@ -29,6 +30,7 @@ class Website:
             'name': self.name,
             'url': self.url,
             'created_date': self.created_date,
+            'description': self.description,
             'scraping_config': self.scraping_config
         }
     
@@ -40,6 +42,7 @@ class Website:
             name=data['name'],
             url=data['url'],
             created_date=data['created_date'],
+            description=data.get('description', ''),
             scraping_config=data.get('scraping_config', {
                 'max_pages': 100,
                 'depth_limit': 3,
@@ -85,7 +88,7 @@ class Project:
             websites=websites
         )
     
-    def add_website(self, name: str, url: str, scraping_config: Optional[Dict[str, Any]] = None) -> Website:
+    def add_website(self, name: str, url: str, description: str = "", scraping_config: Optional[Dict[str, Any]] = None) -> Website:
         """Add a website to the project"""
         from bson import ObjectId
         
@@ -95,6 +98,7 @@ class Project:
             name=name,
             url=url,
             created_date=datetime.datetime.utcnow(),
+            description=description,
             scraping_config=scraping_config or {
                 'max_pages': 100,
                 'depth_limit': 3,
@@ -188,7 +192,7 @@ class ProjectRepository(BaseRepository):
         return True
     
     def add_website_to_project(self, project_id: str, name: str, url: str, 
-                             scraping_config: Optional[Dict[str, Any]] = None) -> Optional[str]:
+                             description: str = "", scraping_config: Optional[Dict[str, Any]] = None) -> Optional[str]:
         """
         Add a website to a project
         
@@ -196,6 +200,7 @@ class ProjectRepository(BaseRepository):
             project_id: Project ID
             name: Website name
             url: Website URL
+            description: Website description
             scraping_config: Scraping configuration
         
         Returns:
@@ -205,7 +210,7 @@ class ProjectRepository(BaseRepository):
         if not project:
             return None
         
-        website = project.add_website(name, url, scraping_config)
+        website = project.add_website(name, url, description, scraping_config)
         
         if self.update(project_id, {'websites': [w.to_dict() for w in project.websites]}):
             return website.website_id

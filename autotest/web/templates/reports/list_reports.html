@@ -1,0 +1,258 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Reports - AutoTest{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="page-header">
+        <h1>Generated Reports</h1>
+        <div class="page-actions">
+            <a href="{{ url_for('reports.generate_report') }}" class="btn btn-primary">Generate New Report</a>
+        </div>
+    </div>
+
+    {% if reports %}
+    <div class="filters-bar">
+        <form method="GET" class="filters-form">
+            <div class="filter-group">
+                <label for="project-filter">Filter by Project:</label>
+                <select id="project-filter" name="project_id">
+                    <option value="">All Projects</option>
+                    {% for project in projects %}
+                    <option value="{{ project.project_id }}" {% if current_filters.project_id == project.project_id %}selected{% endif %}>
+                        {{ project.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-outline">Apply Filter</button>
+        </form>
+    </div>
+
+    <div class="reports-grid">
+        {% for report in reports %}
+        <div class="report-card">
+            <div class="report-header">
+                <h3 class="report-title">{{ report.report_name or 'Accessibility Report' }}</h3>
+                <span class="report-type">{{ report.template_name or report.template_id }}</span>
+            </div>
+            
+            <div class="report-meta">
+                <div class="meta-item">
+                    <span class="meta-label">Generated:</span>
+                    <span class="meta-value">{{ report.created_date | format_datetime }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Format:</span>
+                    <span class="meta-value">{{ report.format | upper }}</span>
+                </div>
+                {% if report.project %}
+                <div class="meta-item">
+                    <span class="meta-label">Project:</span>
+                    <span class="meta-value">{{ report.project.name }}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if report.sections %}
+            <div class="report-summary">
+                <span class="summary-label">{{ report.sections | length }} sections</span>
+            </div>
+            {% endif %}
+
+            <div class="report-actions">
+                <a href="{{ url_for('reports.view_report', report_id=report.report_id) }}" class="btn btn-outline btn-sm">View</a>
+                <a href="{{ url_for('reports.download_report', report_id=report.report_id) }}" class="btn btn-primary btn-sm">Download</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">
+            <svg aria-hidden="true" width="48" height="48">
+                <path d="M14 2H6A2 2 0 004 4V20A2 2 0 006 22H18A2 2 0 0020 20V8L14 2Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                <polyline points="14,2 14,8 20,8" stroke="currentColor" fill="none" stroke-width="2"/>
+            </svg>
+        </div>
+        <h3 class="empty-title">No Reports Generated</h3>
+        <p class="empty-description">
+            You haven't generated any accessibility reports yet. Click the button below to create your first report.
+        </p>
+        <div class="empty-actions">
+            <a href="{{ url_for('reports.generate_report') }}" class="btn btn-primary">Generate First Report</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+}
+
+.page-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.filters-bar {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.filters-form {
+    display: flex;
+    align-items: end;
+    gap: 1rem;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.filter-group label {
+    font-weight: 500;
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.filter-group select {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    min-width: 200px;
+}
+
+.reports-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+}
+
+.report-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    transition: box-shadow 0.3s ease;
+}
+
+.report-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.report-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+    flex: 1;
+    margin-right: 1rem;
+}
+
+.report-type {
+    font-size: 0.8rem;
+    color: #666;
+    background: #f0f0f0;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.report-meta {
+    margin-bottom: 1rem;
+}
+
+.meta-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.meta-item:last-child {
+    border-bottom: none;
+}
+
+.meta-label {
+    font-size: 0.9rem;
+    color: #666;
+    font-weight: 500;
+}
+
+.meta-value {
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.report-summary {
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.summary-label {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.report-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.empty-icon {
+    color: #ccc;
+    margin-bottom: 1rem;
+}
+
+.empty-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.empty-description {
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 2rem;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.empty-actions {
+    display: flex;
+    justify-content: center;
+}
+</style>
+{% endblock %}

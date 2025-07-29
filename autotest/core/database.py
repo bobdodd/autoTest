@@ -65,7 +65,7 @@ class DatabaseConnection(LoggerMixin):
     
     def _create_indexes(self) -> None:
         """Create database indexes for better query performance"""
-        if not self._database:
+        if self._database is None:
             return
         
         try:
@@ -93,14 +93,14 @@ class DatabaseConnection(LoggerMixin):
     @property
     def database(self) -> Database:
         """Get database instance"""
-        if not self._database:
+        if self._database is None:
             raise RuntimeError("Database not connected. Call connect() first.")
         return self._database
     
     @property
     def client(self) -> MongoClient:
         """Get MongoDB client instance"""
-        if not self._client:
+        if self._client is None:
             raise RuntimeError("Database not connected. Call connect() first.")
         return self._client
     

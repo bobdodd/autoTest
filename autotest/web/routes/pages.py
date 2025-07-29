@@ -16,10 +16,10 @@ import time
 pages_bp = Blueprint('pages', __name__, url_prefix='/projects/<project_id>/websites/<website_id>/pages')
 
 # Initialize managers
-project_manager = ProjectManager()
-website_manager = WebsiteManager()
-scraper = WebScraper()
-accessibility_tester = AccessibilityTester()
+project_manager = None  # ProjectManager()
+website_manager = None  # WebsiteManager()
+scraper = None  # WebScraper()
+accessibility_tester = None  # AccessibilityTester()
 
 logger = logging.getLogger(__name__)
 
@@ -27,23 +27,49 @@ logger = logging.getLogger(__name__)
 active_processes = {}
 
 
+def init_page_managers(config, db_connection):
+    """Initialize page managers (called by app factory)"""
+    global project_manager, website_manager, scraper, accessibility_tester
+    try:
+        project_manager = ProjectManager(db_connection)
+        website_manager = WebsiteManager(db_connection)
+        scraper = WebScraper(config, db_connection)
+        accessibility_tester = AccessibilityTester(config, db_connection)
+        logger.info("Page managers initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize page managers: {e}")
+        raise
+
+
 @pages_bp.route('/')
 def list_pages(project_id, website_id):
     """Display list of pages for a website."""
     try:
-        project = project_manager.get_project(project_id)
+        project_result = project_manager.get_project(project_id)
         website = website_manager.get_website(website_id)
         
-        if not project or not website:
+        if not project_result.get('success') or not website:
             flash('Website not found.', 'error')
             return redirect(url_for('projects.view_project', project_id=project_id))
         
-        # Get pages with filtering and sorting
+        project = project_result['project']
+        
+        # Get pages from database 
         filter_status = request.args.get('status', '')
         sort_by = request.args.get('sort', 'url')
         search_query = request.args.get('q', '')
         
-        pages = website.get('pages', [])
+        # Get pages from database using website_manager
+        logger.info(f"Getting pages for website {website_id} in project {project_id}")
+        pages_result = website_manager.get_website_pages(project_id, website_id)
+        logger.info(f"Pages result: {pages_result}")
+        
+        if pages_result.get('success'):
+            pages = pages_result.get('pages', [])
+            logger.info(f"Found {len(pages)} pages")
+        else:
+            pages = []
+            logger.warning(f"Failed to get pages for website {website_id}: {pages_result.get('error', 'Unknown error')}")
         
         # Apply filters
         if filter_status:
@@ -73,13 +99,14 @@ def list_pages(project_id, website_id):
         else:  # default: url
             pages.sort(key=lambda p: p.get('url', '').lower())
         
-        # Calculate statistics
+        # Calculate statistics using actual pages from database
+        all_pages = pages_result.get('pages', []) if pages_result.get('success') else []
         stats = {
-            'total_pages': len(website.get('pages', [])),
-            'tested_pages': len([p for p in website.get('pages', []) if p.get('last_test_date')]),
-            'scanned_pages': len([p for p in website.get('pages', []) if p.get('last_scan_date')]),
-            'pages_with_issues': len([p for p in website.get('pages', []) if p.get('issues', [])]),
-            'total_issues': sum(len(p.get('issues', [])) for p in website.get('pages', []))
+            'total_pages': len(all_pages),
+            'tested_pages': len([p for p in all_pages if p.get('last_test_date')]),
+            'scanned_pages': len([p for p in all_pages if p.get('last_scan_date')]),
+            'pages_with_issues': len([p for p in all_pages if p.get('issues', [])]),
+            'total_issues': sum(len(p.get('issues', [])) for p in all_pages)
         }
         
         return render_template('pages/list.html',
@@ -103,12 +130,20 @@ def list_pages(project_id, website_id):
 def add_page(project_id, website_id):
     """Manually add a page to the website."""
     try:
-        project = project_manager.get_project(project_id)
+        # Check if managers are initialized
+        if project_manager is None or website_manager is None:
+            logger.error("Page managers not initialized")
+            flash('System error: Page managers not available.', 'error')
+            return redirect(url_for('main.index'))
+        
+        project_result = project_manager.get_project(project_id)
         website = website_manager.get_website(website_id)
         
-        if not project or not website:
+        if not project_result.get('success') or not website:
             flash('Website not found.', 'error')
             return redirect(url_for('projects.view_project', project_id=project_id))
+        
+        project = project_result['project']
         
         if request.method == 'POST':
             # Get form data
@@ -136,23 +171,28 @@ def add_page(project_id, website_id):
                                      website=website,
                                      form_data=request.form)
             
-            # Add page
-            page_data = {
-                'url': url,
-                'title': title or None,
-                'description': description or None,
-                'discovery_method': 'manual',
-                'added_date': None  # Will be set by website_manager
-            }
+            # Add page using correct method signature
+            logger.info(f"Adding page '{url}' to website {website_id} in project {project_id}")
             
-            page_id = website_manager.add_page_to_website(website_id, page_data)
-            if page_id:
+            result = website_manager.add_page_to_website(
+                project_id=project_id,
+                website_id=website_id, 
+                url=url,
+                title=title or "",
+                description=description or "",
+                discovered_method='manual'
+            )
+            
+            logger.info(f"Page addition result: {result}")
+            
+            if result.get('success'):
                 flash(f'Page added successfully.', 'success')
                 return redirect(url_for('pages.list_pages',
                                       project_id=project_id,
                                       website_id=website_id))
             else:
-                flash('Error adding page.', 'error')
+                error_msg = result.get('error', 'Error adding page.')
+                flash(error_msg, 'error')
         
         return render_template('pages/add.html',
                              project=project,
@@ -275,21 +315,164 @@ def test_page(project_id, website_id, page_id):
         return jsonify({'error': 'Error starting test'}), 500
 
 
+@pages_bp.route('/<page_id>/edit', methods=['GET', 'POST'])
+def edit_page(project_id, website_id, page_id):
+    """Edit a page's details."""
+    try:
+        # Check if managers are initialized
+        if project_manager is None or website_manager is None:
+            logger.error("Page managers not initialized")
+            flash('System error: Page managers not available.', 'error')
+            return redirect(url_for('main.index'))
+        
+        project_result = project_manager.get_project(project_id)
+        website = website_manager.get_website(website_id)
+        
+        if not project_result.get('success') or not website:
+            flash('Website not found.', 'error')
+            return redirect(url_for('projects.view_project', project_id=project_id))
+        
+        project = project_result['project']
+        
+        # Get the page from database
+        page = website_manager.page_repo.get_page(page_id)
+        if not page:
+            flash('Page not found.', 'error')
+            return redirect(url_for('pages.list_pages',
+                                  project_id=project_id,
+                                  website_id=website_id))
+        
+        # Verify page belongs to this project/website
+        if page.project_id != project_id or page.website_id != website_id:
+            flash('Page not found.', 'error')
+            return redirect(url_for('pages.list_pages',
+                                  project_id=project_id,
+                                  website_id=website_id))
+        
+        if request.method == 'POST':
+            # Get form data
+            url = request.form.get('url', '').strip()
+            title = request.form.get('title', '').strip()
+            description = request.form.get('description', '').strip()
+            
+            # Validation
+            errors = []
+            if not url:
+                errors.append('Page URL is required.')
+            elif not url.startswith(('http://', 'https://')):
+                errors.append('Page URL must start with http:// or https://')
+            
+            # Check if URL changed and conflicts with existing page
+            if url != page.url:
+                if website_manager.page_repo.page_exists(project_id, website_id, url):
+                    errors.append('A page with this URL already exists.')
+            
+            if errors:
+                for error in errors:
+                    flash(error, 'error')
+                return render_template('pages/edit.html',
+                                     project=project,
+                                     website=website,
+                                     page=page,
+                                     form_data=request.form)
+            
+            # Update page
+            logger.info(f"Updating page {page_id} with URL '{url}', title '{title}', and description '{description}'")
+            
+            result = website_manager.update_page(
+                page_id=page_id,
+                url=url if url != page.url else None,
+                title=title if title != page.title else None,
+                description=description if description != page.description else None
+            )
+            
+            if result.get('success'):
+                flash('Page updated successfully.', 'success')
+                return redirect(url_for('pages.view_page',
+                                      project_id=project_id,
+                                      website_id=website_id,
+                                      page_id=page_id))
+            else:
+                error_msg = result.get('error', 'Error updating page.')
+                flash(error_msg, 'error')
+        
+        return render_template('pages/edit.html',
+                             project=project,
+                             website=website,
+                             page=page)
+    
+    except Exception as e:
+        logger.error(f"Error editing page {page_id}: {e}")
+        flash('Error editing page.', 'error')
+        return redirect(url_for('pages.list_pages',
+                              project_id=project_id,
+                              website_id=website_id))
+
+
+@pages_bp.route('/<page_id>/toggle-ignore', methods=['POST'])
+def toggle_page_ignore(project_id, website_id, page_id):
+    """Toggle ignore status of a page."""
+    try:
+        # Check if managers are initialized
+        if website_manager is None:
+            logger.error("Website manager not initialized")
+            return jsonify({'error': 'System error: Website manager not available'}), 500
+        
+        # Verify page exists and belongs to this project/website
+        page = website_manager.page_repo.get_page(page_id)
+        if not page:
+            return jsonify({'error': 'Page not found'}), 404
+            
+        if page.project_id != project_id or page.website_id != website_id:
+            return jsonify({'error': 'Page not found'}), 404
+        
+        # Toggle ignore status
+        logger.info(f"Toggling ignore status for page {page_id}")
+        success = website_manager.page_repo.toggle_ignored(page_id)
+        
+        if success:
+            # Get updated page to return new status
+            updated_page = website_manager.page_repo.get_page(page_id)
+            return jsonify({
+                'success': True,
+                'ignored': updated_page.ignored,
+                'message': f'Page {"ignored" if updated_page.ignored else "unignored"} successfully'
+            })
+        else:
+            return jsonify({'error': 'Failed to toggle ignore status'}), 500
+    
+    except Exception as e:
+        logger.error(f"Error toggling ignore status for page {page_id}: {e}")
+        return jsonify({'error': 'Error updating page'}), 500
+
+
 @pages_bp.route('/<page_id>/delete', methods=['POST'])
 def delete_page(project_id, website_id, page_id):
     """Delete a page from the website."""
     try:
+        # Check if managers are initialized
+        if website_manager is None:
+            logger.error("Website manager not initialized")
+            flash('System error: Website manager not available.', 'error')
+            return redirect(url_for('main.index'))
+        
         website = website_manager.get_website(website_id)
         if not website:
             flash('Website not found.', 'error')
             return redirect(url_for('projects.view_project', project_id=project_id))
         
-        # Find and remove the page
-        success = website_manager.remove_page_from_website(website_id, page_id)
-        if success:
+        # Remove the page using correct method signature
+        logger.info(f"Deleting page {page_id} from website {website_id} in project {project_id}")
+        
+        result = website_manager.remove_page_from_website(project_id, website_id, page_id)
+        logger.info(f"Page deletion result: {result}")
+        
+        if result.get('success'):
             flash('Page deleted successfully.', 'success')
         else:
-            flash('Error deleting page.', 'error')
+            error_msg = result.get('error', 'Error deleting page.')
+            logger.error(f"Failed to delete page: {error_msg}")
+            flash(error_msg, 'error')
         
         return redirect(url_for('pages.list_pages',
                               project_id=project_id,
@@ -332,7 +515,7 @@ def discover_pages(project_id, website_id):
                 
                 # TODO: Implement actual page discovery
                 # This would use the scraper to crawl the website
-                base_url = website.get('base_url')
+                base_url = website.get('url')
                 max_pages = config.get('max_pages', 100)
                 
                 # Simulate discovery process
@@ -342,16 +525,17 @@ def discover_pages(project_id, website_id):
                     
                     time.sleep(0.5)  # Simulate discovery time
                     
-                    # Mock discovered page
-                    page_data = {
-                        'url': f"{base_url}/page-{i+1}",
-                        'title': f"Page {i+1}",
-                        'discovery_method': 'automated',
-                        'depth': 1
-                    }
+                    # Mock discovered page URL and title
+                    page_url = f"{base_url}/page-{i+1}"
+                    page_title = f"Page {i+1}"
                     
                     # Add page to website
-                    website_manager.add_page_to_website(website_id, page_data)
+                    result = website_manager.add_page_to_website(
+                        project_id, website_id, page_url, page_title, "", "automated"
+                    )
+                    
+                    if not result.get('success'):
+                        logger.warning(f"Failed to add discovered page: {result.get('error')}")
                     
                     # Update progress
                     active_processes[website_id]['progress'] = int((i + 1) / 10 * 100)

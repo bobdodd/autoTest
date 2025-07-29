@@ -1,0 +1,467 @@
+"""
+Unit tests for AutoTest accessibility testing rules
+"""
+
+import pytest
+from unittest.mock import Mock, patch
+from bs4 import BeautifulSoup
+
+from autotest.testing.rules.wcag_rules import WCAGRules
+from autotest.testing.rules.rule_engine import RuleEngine
+from autotest.testing.css.css_rules import CSSAccessibilityRules
+from autotest.testing.javascript.js_accessibility_checker import JSAccessibilityChecker
+
+class TestWCAGRules:
+    """Test cases for WCAG accessibility rules"""
+    
+    @pytest.fixture
+    def wcag_rules(self):
+        """WCAG rules instance"""
+        return WCAGRules()
+    
+    @pytest.fixture
+    def sample_soup(self, sample_html_content):
+        """BeautifulSoup object from sample HTML"""
+        return BeautifulSoup(sample_html_content, 'html.parser')
+    
+    def test_check_color_contrast(self, wcag_rules, sample_soup):
+        """Test color contrast checking"""
+        # Mock CSS analysis
+        with patch.object(wcag_rules, 'get_computed_styles') as mock_styles:
+            mock_styles.return_value = {
+                '.low-contrast': {'color': '#777777', 'background-color': '#ffffff'},
+                '.good-contrast': {'color': '#000000', 'background-color': '#ffffff'}
+            }
+            
+            violations = wcag_rules.check_color_contrast(sample_soup)
+            
+            # Should find violations for low contrast elements
+            assert len(violations) > 0
+            
+            # Check that violation has proper structure
+            violation = violations[0]
+            assert violation['rule_id'] == 'color_contrast'
+            assert violation['severity'] in ['minor', 'moderate', 'serious', 'critical']
+            assert 'description' in violation
+            assert 'elements' in violation
+    
+    def test_check_alt_text(self, wcag_rules, sample_soup):
+        """Test alt text checking"""
+        violations = wcag_rules.check_alt_text(sample_soup)
+        
+        # Should find violations for images without alt text
+        assert len(violations) > 0
+        
+        # Find the missing alt text violation
+        missing_alt_violation = next(
+            (v for v in violations if 'missing-alt.jpg' in str(v.get('elements', []))),
+            None
+        )
+        assert missing_alt_violation is not None
+        assert missing_alt_violation['rule_id'] == 'alt_text'
+        assert missing_alt_violation['severity'] in ['serious', 'critical']
+    
+    def test_check_heading_structure(self, wcag_rules, sample_soup):
+        """Test heading structure validation"""
+        violations = wcag_rules.check_heading_structure(sample_soup)
+        
+        # Sample HTML has proper heading structure (h1 -> h2)
+        # so there should be no violations
+        assert len(violations) == 0
+        
+        # Test with improper heading structure
+        bad_html = """
+        <html>
+        <body>
+            <h3>First heading (should be h1)</h3>
+            <h1>Wrong order</h1>
+        </body>
+        </html>
+        """
+        bad_soup = BeautifulSoup(bad_html, 'html.parser')
+        violations = wcag_rules.check_heading_structure(bad_soup)
+        
+        assert len(violations) > 0
+        violation = violations[0]
+        assert violation['rule_id'] == 'heading_structure'
+    
+    def test_check_form_labels(self, wcag_rules, sample_soup):
+        """Test form label association checking"""
+        violations = wcag_rules.check_form_labels(sample_soup)
+        
+        # Should find violation for unlabeled input
+        assert len(violations) > 0
+        
+        unlabeled_violation = next(
+            (v for v in violations if 'unlabeled' in str(v.get('elements', []))),
+            None
+        )
+        assert unlabeled_violation is not None
+        assert unlabeled_violation['rule_id'] == 'form_labels'
+        assert unlabeled_violation['severity'] in ['serious', 'critical']
+    
+    def test_check_keyboard_navigation(self, wcag_rules, sample_soup):
+        """Test keyboard navigation checking"""
+        violations = wcag_rules.check_keyboard_navigation(sample_soup)
+        
+        # Should find violations for focusable elements without proper roles
+        assert len(violations) > 0
+        
+        # Look for focusable div without role
+        focusable_violation = next(
+            (v for v in violations if 'tabindex' in str(v.get('elements', []))),
+            None
+        )
+        assert focusable_violation is not None
+        assert focusable_violation['rule_id'] == 'keyboard_navigation'
+    
+    def test_check_link_accessibility(self, wcag_rules, sample_soup):
+        """Test link accessibility checking"""
+        violations = wcag_rules.check_link_accessibility(sample_soup)
+        
+        # Sample HTML should have accessible links, so minimal violations
+        # Test with problematic links
+        bad_html = """
+        <html>
+        <body>
+            <a href="/test">Click here</a>
+            <a href="/another"></a>
+            <a href="/good">Descriptive link text</a>
+        </body>
+        </html>
+        """
+        bad_soup = BeautifulSoup(bad_html, 'html.parser')
+        violations = wcag_rules.check_link_accessibility(bad_soup)
+        
+        assert len(violations) > 0
+        # Should find violations for "click here" and empty link text
+    
+    def test_check_language_attributes(self, wcag_rules, sample_soup):
+        """Test language attribute checking"""
+        violations = wcag_rules.check_language_attributes(sample_soup)
+        
+        # Sample HTML has lang="en", so should be no violations
+        assert len(violations) == 0
+        
+        # Test with missing language
+        no_lang_html = "<html><body><p>Content without language</p></body></html>"
+        no_lang_soup = BeautifulSoup(no_lang_html, 'html.parser')
+        violations = wcag_rules.check_language_attributes(no_lang_soup)
+        
+        assert len(violations) > 0
+        assert violations[0]['rule_id'] == 'language_attributes'
+    
+    def test_check_aria_usage(self, wcag_rules, sample_soup):
+        """Test ARIA attribute usage checking"""
+        violations = wcag_rules.check_aria_usage(sample_soup)
+        
+        # Sample HTML has proper ARIA usage in nav, so minimal violations
+        # Test with improper ARIA usage
+        bad_aria_html = """
+        <html>
+        <body>
+            <div role="button">Button without tabindex</div>
+            <div aria-labelledby="nonexistent">Invalid labelledby</div>
+            <input aria-required="maybe">
+        </body>
+        </html>
+        """
+        bad_aria_soup = BeautifulSoup(bad_aria_html, 'html.parser')
+        violations = wcag_rules.check_aria_usage(bad_aria_soup)
+        
+        assert len(violations) > 0
+
+class TestRuleEngine:
+    """Test cases for Rule Engine"""
+    
+    @pytest.fixture
+    def rule_engine(self):
+        """Rule engine instance"""
+        return RuleEngine()
+    
+    def test_rule_registration(self, rule_engine):
+        """Test rule registration"""
+        def test_rule(soup):
+            return [{'rule_id': 'test_rule', 'severity': 'minor'}]
+        
+        rule_engine.register_rule('test_rule', test_rule, 'Test rule description')
+        
+        assert 'test_rule' in rule_engine.rules
+        assert rule_engine.rules['test_rule']['function'] == test_rule
+        assert rule_engine.rules['test_rule']['description'] == 'Test rule description'
+    
+    def test_run_all_rules(self, rule_engine, sample_soup):
+        """Test running all registered rules"""
+        # Register test rules
+        def rule1(soup):
+            return [{'rule_id': 'rule1', 'severity': 'minor'}]
+        
+        def rule2(soup):
+            return [{'rule_id': 'rule2', 'severity': 'serious'}]
+        
+        rule_engine.register_rule('rule1', rule1, 'Test rule 1')
+        rule_engine.register_rule('rule2', rule2, 'Test rule 2')
+        
+        violations = rule_engine.run_all_rules(sample_soup)
+        
+        assert len(violations) == 2
+        rule_ids = [v['rule_id'] for v in violations]
+        assert 'rule1' in rule_ids
+        assert 'rule2' in rule_ids
+    
+    def test_run_specific_rules(self, rule_engine, sample_soup):
+        """Test running specific rules"""
+        def rule1(soup):
+            return [{'rule_id': 'rule1', 'severity': 'minor'}]
+        
+        def rule2(soup):
+            return [{'rule_id': 'rule2', 'severity': 'serious'}]
+        
+        rule_engine.register_rule('rule1', rule1, 'Test rule 1')
+        rule_engine.register_rule('rule2', rule2, 'Test rule 2')
+        
+        violations = rule_engine.run_rules(sample_soup, ['rule1'])
+        
+        assert len(violations) == 1
+        assert violations[0]['rule_id'] == 'rule1'
+    
+    def test_rule_filtering_by_severity(self, rule_engine, sample_soup):
+        """Test filtering rules by severity"""
+        def minor_rule(soup):
+            return [{'rule_id': 'minor_rule', 'severity': 'minor'}]
+        
+        def critical_rule(soup):
+            return [{'rule_id': 'critical_rule', 'severity': 'critical'}]
+        
+        rule_engine.register_rule('minor_rule', minor_rule, 'Minor rule')
+        rule_engine.register_rule('critical_rule', critical_rule, 'Critical rule')
+        
+        # Test filtering
+        all_violations = rule_engine.run_all_rules(sample_soup)
+        critical_violations = rule_engine.filter_by_severity(all_violations, ['critical'])
+        
+        assert len(all_violations) == 2
+        assert len(critical_violations) == 1
+        assert critical_violations[0]['rule_id'] == 'critical_rule'
+
+class TestCSSAccessibilityRules:
+    """Test cases for CSS accessibility rules"""
+    
+    @pytest.fixture
+    def css_rules(self):
+        """CSS accessibility rules instance"""
+        return CSSAccessibilityRules()
+    
+    def test_check_font_size(self, css_rules, sample_css_content):
+        """Test font size checking"""
+        violations = css_rules.check_font_size(sample_css_content)
+        
+        # Should find violation for font-size: 10px (too small)
+        assert len(violations) > 0
+        
+        font_size_violation = next(
+            (v for v in violations if v['rule_id'] == 'font_size'),
+            None
+        )
+        assert font_size_violation is not None
+        assert font_size_violation['severity'] in ['moderate', 'serious']
+    
+    def test_check_line_height(self, css_rules, sample_css_content):
+        """Test line height checking"""
+        violations = css_rules.check_line_height(sample_css_content)
+        
+        # Should find violation for line-height: 1.0 (too tight)
+        assert len(violations) > 0
+        
+        line_height_violation = next(
+            (v for v in violations if v['rule_id'] == 'line_height'),
+            None
+        )
+        assert line_height_violation is not None
+    
+    def test_check_color_contrast_css(self, css_rules, sample_css_content):
+        """Test CSS color contrast checking"""
+        violations = css_rules.check_color_contrast(sample_css_content)
+        
+        # Should find violation for poor contrast combination
+        assert len(violations) > 0
+        
+        contrast_violation = next(
+            (v for v in violations if v['rule_id'] == 'css_color_contrast'),
+            None
+        )
+        assert contrast_violation is not None
+    
+    def test_check_focus_indicators(self, css_rules, sample_css_content):
+        """Test focus indicator checking"""
+        violations = css_rules.check_focus_indicators(sample_css_content)
+        
+        # Should find violation for outline: none
+        assert len(violations) > 0
+        
+        focus_violation = next(
+            (v for v in violations if v['rule_id'] == 'focus_indicators'),
+            None
+        )
+        assert focus_violation is not None
+        assert focus_violation['severity'] in ['serious', 'critical']
+    
+    def test_check_touch_targets(self, css_rules, sample_css_content):
+        """Test touch target size checking"""
+        violations = css_rules.check_touch_targets(sample_css_content)
+        
+        # Should find violation for small touch targets
+        assert len(violations) > 0
+        
+        touch_violation = next(
+            (v for v in violations if v['rule_id'] == 'touch_targets'),
+            None
+        )
+        assert touch_violation is not None
+    
+    def test_check_animation_safety(self, css_rules, sample_css_content):
+        """Test animation safety checking"""
+        violations = css_rules.check_animation_safety(sample_css_content)
+        
+        # Should find violation for fast animation (0.1s)
+        assert len(violations) > 0
+        
+        animation_violation = next(
+            (v for v in violations if v['rule_id'] == 'animation_safety'),
+            None
+        )
+        assert animation_violation is not None
+
+class TestJSAccessibilityChecker:
+    """Test cases for JavaScript accessibility checker"""
+    
+    @pytest.fixture
+    def js_checker(self):
+        """JavaScript accessibility checker instance"""
+        return JSAccessibilityChecker()
+    
+    def test_check_keyboard_handlers(self, js_checker, sample_javascript_content):
+        """Test keyboard event handler checking"""
+        violations = js_checker.check_keyboard_handlers(sample_javascript_content)
+        
+        # Should find violation for click-only handler
+        assert len(violations) > 0
+        
+        keyboard_violation = next(
+            (v for v in violations if v['rule_id'] == 'keyboard_handlers'),
+            None
+        )
+        assert keyboard_violation is not None
+    
+    def test_check_focus_management(self, js_checker, sample_javascript_content):
+        """Test focus management checking"""
+        violations = js_checker.check_focus_management(sample_javascript_content)
+        
+        # Should find violations in focus trap function
+        focus_violations = [v for v in violations if v['rule_id'] == 'focus_management']
+        assert len(focus_violations) > 0
+    
+    def test_check_aria_updates(self, js_checker, sample_javascript_content):
+        """Test ARIA attribute update checking"""
+        violations = js_checker.check_aria_updates(sample_javascript_content)
+        
+        # Sample code has good ARIA usage in modal function
+        aria_violations = [v for v in violations if v['rule_id'] == 'aria_updates']
+        # Should have minimal violations due to good modal implementation
+    
+    def test_check_dynamic_content(self, js_checker, sample_javascript_content):
+        """Test dynamic content accessibility checking"""
+        violations = js_checker.check_dynamic_content(sample_javascript_content)
+        
+        # Should find violation for automatic content changes
+        assert len(violations) > 0
+        
+        dynamic_violation = next(
+            (v for v in violations if v['rule_id'] == 'dynamic_content'),
+            None
+        )
+        assert dynamic_violation is not None
+    
+    def test_check_motion_preferences(self, js_checker, sample_javascript_content):
+        """Test motion preference checking"""
+        violations = js_checker.check_motion_preferences(sample_javascript_content)
+        
+        # Should find violation for animation without motion preference check
+        motion_violations = [v for v in violations if v['rule_id'] == 'motion_preferences']
+        assert len(motion_violations) > 0
+    
+    def test_calculate_accessibility_score(self, js_checker, sample_javascript_content):
+        """Test JavaScript accessibility score calculation"""
+        score = js_checker.calculate_accessibility_score(sample_javascript_content)
+        
+        assert 0 <= score <= 100
+        # Sample code has both good and bad practices, so score should be moderate
+        assert 30 <= score <= 80
+    
+    def test_get_recommendations(self, js_checker, sample_javascript_content):
+        """Test getting accessibility recommendations"""
+        recommendations = js_checker.get_recommendations(sample_javascript_content)
+        
+        assert len(recommendations) > 0
+        
+        # Should include recommendations for the violations found
+        recommendation_types = [r['type'] for r in recommendations]
+        assert 'keyboard_handlers' in recommendation_types
+        assert 'dynamic_content' in recommendation_types
+
+class TestAccessibilityAssertions:
+    """Test cases for custom accessibility assertions"""
+    
+    def test_assert_violation_present(self, accessibility_assertions):
+        """Test violation presence assertion"""
+        violations = [
+            {'rule_id': 'color_contrast', 'severity': 'serious'},
+            {'rule_id': 'alt_text', 'severity': 'minor'}
+        ]
+        
+        # Should pass for existing violation
+        accessibility_assertions.assert_violation_present(violations, 'color_contrast')
+        
+        # Should fail for non-existing violation
+        with pytest.raises(AssertionError):
+            accessibility_assertions.assert_violation_present(violations, 'nonexistent_rule')
+    
+    def test_assert_violation_not_present(self, accessibility_assertions):
+        """Test violation absence assertion"""
+        violations = [
+            {'rule_id': 'color_contrast', 'severity': 'serious'},
+            {'rule_id': 'alt_text', 'severity': 'minor'}
+        ]
+        
+        # Should pass for non-existing violation
+        accessibility_assertions.assert_violation_not_present(violations, 'nonexistent_rule')
+        
+        # Should fail for existing violation
+        with pytest.raises(AssertionError):
+            accessibility_assertions.assert_violation_not_present(violations, 'color_contrast')
+    
+    def test_assert_score_range(self, accessibility_assertions):
+        """Test score range assertion"""
+        # Should pass for score in range
+        accessibility_assertions.assert_score_range(75, 70, 80)
+        
+        # Should fail for score outside range
+        with pytest.raises(AssertionError):
+            accessibility_assertions.assert_score_range(85, 70, 80)
+        
+        with pytest.raises(AssertionError):
+            accessibility_assertions.assert_score_range(65, 70, 80)
+    
+    def test_assert_wcag_level(self, accessibility_assertions):
+        """Test WCAG level assertion"""
+        result = {'wcag_level': 'AA'}
+        
+        # Should pass for correct level
+        accessibility_assertions.assert_wcag_level(result, 'AA')
+        
+        # Should fail for incorrect level
+        with pytest.raises(AssertionError):
+            accessibility_assertions.assert_wcag_level(result, 'AAA')
+
+if __name__ == '__main__':
+    pytest.main([__file__])

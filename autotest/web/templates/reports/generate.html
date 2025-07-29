@@ -1,0 +1,378 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Generate Report - AutoTest{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="page-header">
+        <h1>Generate Accessibility Report</h1>
+        <p>Create comprehensive accessibility reports for your projects.</p>
+    </div>
+
+    <div class="report-form-container">
+        <form method="POST" class="report-form">
+            <div class="form-section">
+                <h2>Report Configuration</h2>
+                
+                <div class="form-group">
+                    <label for="report-name">Report Name</label>
+                    <input type="text" id="report-name" name="report_name" required
+                           placeholder="Accessibility Report - January 2025">
+                </div>
+
+                <div class="form-group">
+                    <label for="project-select">Project</label>
+                    <select id="project-select" name="project_id" required>
+                        <option value="">Select a project...</option>
+                        {% if projects %}
+                            {% for project in projects %}
+                            <option value="{{ project.project_id }}">{{ project.name }}</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="report-type">Report Type</label>
+                    <select id="report-type" name="template_id" required>
+                        <option value="executive_summary">Executive Summary</option>
+                        <option value="technical_detailed">Technical Report</option>
+                        <option value="progress_tracking">Progress Report</option>
+                        <option value="compliance_audit">Compliance Report</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Content Options</h2>
+                
+                <div class="form-group">
+                    <label>Include in Report</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="include_summary" checked>
+                            Executive Summary
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="include_violations" checked>
+                            Violation Details
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="include_recommendations" checked>
+                            Recommendations
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="include_trends">
+                            Historical Trends
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="include_screenshots">
+                            Screenshots
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="severity-filter">Minimum Severity</label>
+                    <select id="severity-filter" name="severity_filter">
+                        <option value="all">All Severities</option>
+                        <option value="minor">Minor and above</option>
+                        <option value="moderate">Moderate and above</option>
+                        <option value="serious">Serious and above</option>
+                        <option value="critical">Critical only</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Export Format</h2>
+                
+                <div class="form-group">
+                    <label>Output Format</label>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="format" value="pdf" checked>
+                            PDF Document
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="format" value="html">
+                            HTML Report
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="format" value="csv">
+                            CSV Data Export
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="format" value="json">
+                            JSON Data Export
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="{{ url_for('reports.dashboard') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Generate Report</button>
+            </div>
+        </form>
+
+        <div class="report-preview">
+            <h2>Report Preview</h2>
+            <div class="preview-content">
+                <div class="preview-section">
+                    <h3>Report Structure</h3>
+                    <div class="preview-content">
+                        <ul class="preview-list">
+                            <li>Cover Page</li>
+                            <li>Executive Summary</li>
+                            <li>Methodology</li>
+                            <li>Findings Overview</li>
+                            <li>Detailed Results</li>
+                            <li>Recommendations</li>
+                            <li>Appendices</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="preview-section">
+                    <h3>Sample Metrics</h3>
+                    <div class="preview-content">
+                        <div class="sample-metrics">
+                            <div class="metric">
+                                <span class="metric-label">Compliance Score</span>
+                                <span class="metric-value">85%</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Pages Tested</span>
+                                <span class="metric-value">24</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Issues Found</span>
+                                <span class="metric-value">42</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.report-form-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.report-form {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.form-section {
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid #e1e8ed;
+}
+
+.form-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.form-section h2 {
+    color: #2c5aa0;
+    margin-bottom: 1.5rem;
+    font-size: 1.25rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #495057;
+}
+
+.form-group input[type="text"],
+.form-group select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.checkbox-group,
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.checkbox-label,
+.radio-label {
+    display: flex;
+    align-items: center;
+    font-weight: normal;
+    cursor: pointer;
+}
+
+.checkbox-label input,
+.radio-label input {
+    margin-right: 0.75rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e1e8ed;
+}
+
+.report-preview {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    height: fit-content;
+}
+
+.report-preview h2 {
+    color: #2c5aa0;
+    margin-bottom: 1.5rem;
+    font-size: 1.25rem;
+}
+
+.preview-section {
+    margin-bottom: 2rem;
+}
+
+.preview-section h3 {
+    color: #495057;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+}
+
+.preview-list {
+    list-style: none;
+    padding: 0;
+}
+
+.preview-list li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.preview-list li:before {
+    content: "▸";
+    color: #2c5aa0;
+    margin-right: 0.5rem;
+}
+
+.sample-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.metric {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.metric-label {
+    color: #495057;
+}
+
+.metric-value {
+    font-weight: bold;
+    color: #2c5aa0;
+}
+
+.btn.btn-secondary {
+    background: #6c757d;
+    color: white;
+    border: none;
+}
+
+.btn.btn-secondary:hover {
+    background: #545b62;
+}
+
+/* Accordion styles */
+.preview-section h3 {
+    cursor: pointer;
+    position: relative;
+    padding-right: 20px;
+}
+
+.preview-section h3:after {
+    content: "▼";
+    position: absolute;
+    right: 0;
+    transition: transform 0.3s ease;
+}
+
+.preview-section.collapsed h3:after {
+    transform: rotate(-90deg);
+}
+
+.preview-section .preview-content {
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.preview-section.collapsed .preview-content {
+    max-height: 0;
+    opacity: 0;
+}
+</style>
+
+<script>
+// Make preview sections collapsible (accordion)
+document.addEventListener('DOMContentLoaded', function() {
+    const previewSections = document.querySelectorAll('.preview-section h3');
+    
+    previewSections.forEach(function(header) {
+        header.addEventListener('click', function() {
+            const section = this.parentElement;
+            section.classList.toggle('collapsed');
+        });
+    });
+    
+    // Handle form submission with loading state
+    const form = document.querySelector('.report-form');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.textContent;
+    
+    form.addEventListener('submit', function(e) {
+        // Show loading state
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Generating Report...';
+        submitBtn.style.opacity = '0.7';
+        
+        // If form submission fails, reset button after 5 seconds
+        setTimeout(function() {
+            if (submitBtn.disabled) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+                submitBtn.style.opacity = '1';
+            }
+        }, 10000);
+    });
+});
+</script>
+{% endblock %}

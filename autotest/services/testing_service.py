@@ -277,8 +277,7 @@ class TestingService(LoggerMixin):
                             if callback:
                                 callback(job)
                             
-                            # Small delay between tests to avoid overwhelming the browser
-                            time.sleep(1)
+                            # Removed artificial delay for faster testing
                             
                         except Exception as e:
                             self.logger.error(f"Error testing page {page_id}: {e}")
@@ -491,7 +490,25 @@ class TestingService(LoggerMixin):
         Returns:
             List of active job dictionaries
         """
-        return [job.to_dict() for job in self.active_jobs.values()]
+        try:
+            active_jobs = []
+            for job in self.active_jobs.values():
+                try:
+                    active_jobs.append(job.to_dict())
+                except Exception as e:
+                    self.logger.error(f"Error serializing active job {job.job_id}: {e}")
+                    # Add a basic representation if serialization fails
+                    active_jobs.append({
+                        'job_id': getattr(job, 'job_id', 'unknown'),
+                        'job_type': getattr(job, 'job_type', 'unknown'),
+                        'status': getattr(job, 'status', 'unknown'),
+                        'progress': getattr(job, 'progress', 0),
+                        'error_message': f"Serialization error: {str(e)}"
+                    })
+            return active_jobs
+        except Exception as e:
+            self.logger.error(f"Error getting active jobs: {e}")
+            return []
     
     def get_job_history(self, limit: int = 50) -> List[Dict[str, Any]]:
         """
@@ -503,39 +520,87 @@ class TestingService(LoggerMixin):
         Returns:
             List of historical job dictionaries
         """
-        return [job.to_dict() for job in self.job_history[-limit:]]
+        try:
+            history = []
+            for job in self.job_history[-limit:]:
+                try:
+                    history.append(job.to_dict())
+                except Exception as e:
+                    self.logger.error(f"Error serializing job history {getattr(job, 'job_id', 'unknown')}: {e}")
+                    # Add a basic representation if serialization fails
+                    history.append({
+                        'job_id': getattr(job, 'job_id', 'unknown'),
+                        'job_type': getattr(job, 'job_type', 'unknown'),
+                        'status': getattr(job, 'status', 'unknown'),
+                        'progress': getattr(job, 'progress', 0),
+                        'error_message': f"Serialization error: {str(e)}"
+                    })
+            return history
+        except Exception as e:
+            self.logger.error(f"Error getting job history: {e}")
+            return []
     
     def get_testing_statistics(self) -> Dict[str, Any]:
         """
-        Get overall testing statistics
+        Get overall testing statistics from database (same as project page)
         
         Returns:
             Dictionary with testing statistics
         """
-        active_count = len(self.active_jobs)
-        running_count = len([j for j in self.active_jobs.values() if j.status == 'running'])
-        
-        # Calculate statistics from recent jobs
-        recent_jobs = list(self.active_jobs.values()) + self.job_history[-50:]
-        completed_jobs = [j for j in recent_jobs if j.status == 'completed']
-        
-        total_pages_tested = sum(j.completed_items for j in completed_jobs)
-        total_violations_found = 0
-        
-        for job in completed_jobs:
-            if 'summary' in job.results:
-                total_violations_found += job.results['summary'].get('total_violations', 0)
-        
-        return {
-            'active_jobs': active_count,
-            'running_jobs': running_count,
-            'completed_jobs_24h': len([j for j in recent_jobs if j.status == 'completed' and 
-                                     j.completed_at and j.completed_at > datetime.now() - timedelta(hours=24)]),
-            'total_pages_tested_24h': sum(j.completed_items for j in recent_jobs if j.status == 'completed' and 
-                                        j.completed_at and j.completed_at > datetime.now() - timedelta(hours=24)),
-            'total_violations_found': total_violations_found,
-            'average_violations_per_page': round(total_violations_found / max(total_pages_tested, 1), 2)
-        }
+        try:
+            from autotest.models.test_result import TestResultRepository
+            from autotest.models.project import ProjectRepository
+            from datetime import datetime, timedelta
+            
+            # Get active jobs from memory
+            active_count = len(self.active_jobs)
+            running_count = len([j for j in self.active_jobs.values() if j.status == 'running'])
+            
+            # Get statistics from database (same source as project page)
+            test_result_repo = TestResultRepository(self.db_connection)
+            project_repo = ProjectRepository(self.db_connection)
+            
+            # Get all projects and calculate totals
+            projects = project_repo.get_all_projects()
+            total_violations_found = 0
+            total_pages_tested = 0
+            pages_tested_24h = 0
+            completed_jobs_24h = 0
+            
+            yesterday = datetime.now() - timedelta(hours=24)
+            
+            for project in projects:
+                # Get violation summary for this project (same as project page uses)
+                summary = test_result_repo.get_violation_summary_by_project(project.project_id)
+                total_violations_found += summary.get('total_violations', 0)
+                total_pages_tested += summary.get('total_tests', 0)
+                
+                # Get 24h statistics by checking test result dates
+                results = test_result_repo.get_results_by_project(project.project_id)
+                for result in results:
+                    if result.test_date and result.test_date > yesterday:
+                        pages_tested_24h += 1
+                        completed_jobs_24h += 1
+            
+            return {
+                'active_jobs': active_count,
+                'running_jobs': running_count,
+                'completed_jobs_24h': completed_jobs_24h,
+                'total_pages_tested_24h': pages_tested_24h,
+                'total_violations_found': total_violations_found,
+                'average_violations_per_page': round(total_violations_found / max(total_pages_tested, 1), 2)
+            }
+        except Exception as e:
+            self.logger.error(f"Error calculating testing statistics: {e}")
+            # Return safe defaults
+            return {
+                'active_jobs': 0,
+                'running_jobs': 0,
+                'completed_jobs_24h': 0,
+                'total_pages_tested_24h': 0,
+                'total_violations_found': 0,
+                'average_violations_per_page': 0.0
+            }
     
     def get_violation_details(self, violation_id: str) -> Optional[Dict[str, Any]]:
         """

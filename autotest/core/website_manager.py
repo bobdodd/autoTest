@@ -27,7 +27,7 @@ class WebsiteManager(LoggerMixin):
         self.page_repo = PageRepository(db_connection)
     
     def add_page_to_website(self, project_id: str, website_id: str, url: str, 
-                           title: str = "", discovered_method: str = "manual") -> Dict[str, Any]:
+                           title: str = "", description: str = "", discovered_method: str = "manual") -> Dict[str, Any]:
         """
         Add a page to a website
         
@@ -36,6 +36,7 @@ class WebsiteManager(LoggerMixin):
             website_id: Website ID
             url: Page URL
             title: Page title
+            description: Page description
             discovered_method: How the page was discovered ("manual" or "scraping")
         
         Returns:
@@ -72,11 +73,16 @@ class WebsiteManager(LoggerMixin):
                 }
             
             # Create the page
+            self.logger.info(f"Creating page with project_id={project_id}, website_id={website_id}, url={url}")
             page_id = self.page_repo.create_page(
-                project_id, website_id, url, title, discovered_method
+                project_id, website_id, url, title, description, discovered_method
             )
             
-            self.logger.info(f"Added page {url} to website {website_id}")
+            self.logger.info(f"Added page {url} to website {website_id} with page_id {page_id}")
+            
+            # Verify the page was created by trying to retrieve it
+            created_pages = self.page_repo.get_pages_by_website(project_id, website_id)
+            self.logger.info(f"After creation, found {len(created_pages)} pages for website {website_id}")
             
             return {
                 'success': True,
@@ -104,27 +110,37 @@ class WebsiteManager(LoggerMixin):
             Dictionary with success status and message
         """
         try:
+            self.logger.info(f"Starting deletion of page {page_id} from website {website_id} in project {project_id}")
+            
             # Verify the page belongs to the correct project and website
             page = self.page_repo.get_page(page_id)
             if not page:
+                self.logger.error(f"Page {page_id} not found in database")
                 return {
                     'success': False,
                     'error': 'Page not found'
                 }
             
+            self.logger.info(f"Page found: project_id={page.project_id}, website_id={page.website_id}")
+            
             if page.project_id != project_id or page.website_id != website_id:
+                self.logger.error(f"Page belongs to project {page.project_id}/website {page.website_id}, not {project_id}/{website_id}")
                 return {
                     'success': False,
                     'error': 'Page does not belong to the specified project and website'
                 }
             
             # Delete associated test results first
+            self.logger.info(f"Deleting test results for page {page_id}")
             from autotest.models.test_result import TestResultRepository
             test_result_repo = TestResultRepository(self.db_connection)
             results_deleted = test_result_repo.delete_results_by_page(page_id)
+            self.logger.info(f"Deleted {results_deleted} test results")
             
             # Delete the page
+            self.logger.info(f"Deleting page {page_id} from database")
             success = self.page_repo.delete(page_id)
+            self.logger.info(f"Page deletion success: {success}")
             
             if success:
                 self.logger.info(f"Removed page {page_id} from website {website_id}")
@@ -147,7 +163,7 @@ class WebsiteManager(LoggerMixin):
             }
     
     def update_page(self, page_id: str, url: Optional[str] = None, 
-                   title: Optional[str] = None) -> Dict[str, Any]:
+                   title: Optional[str] = None, description: Optional[str] = None) -> Dict[str, Any]:
         """
         Update page information
         
@@ -155,6 +171,7 @@ class WebsiteManager(LoggerMixin):
             page_id: Page ID
             url: New page URL (optional)
             title: New page title (optional)
+            description: New page description (optional)
         
         Returns:
             Dictionary with success status and message
@@ -183,7 +200,7 @@ class WebsiteManager(LoggerMixin):
                         'error': 'A page with this URL already exists in the website'
                     }
             
-            success = self.page_repo.update_page(page_id, title, url)
+            success = self.page_repo.update_page(page_id, title, url, description)
             
             if success:
                 self.logger.info(f"Updated page {page_id}")
@@ -204,6 +221,142 @@ class WebsiteManager(LoggerMixin):
                 'error': f'Failed to update page: {str(e)}'
             }
     
+    def get_website(self, website_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get website details by website ID
+        
+        Args:
+            website_id: Website ID to search for
+            
+        Returns:
+            Website dictionary if found, None otherwise
+        """
+        try:
+            self.logger.info(f"Searching for website_id: {website_id}")
+            
+            # Search through all projects to find the website
+            projects = self.project_repo.get_all_projects()
+            self.logger.info(f"Found {len(projects)} projects to search")
+            
+            for project in projects:
+                self.logger.info(f"Searching project {project.project_id} with {len(project.websites)} websites")
+                for website in project.websites:
+                    self.logger.info(f"  - Website ID: {website.website_id}")
+                
+                website = project.get_website(website_id)
+                if website:
+                    self.logger.info(f"Found website {website_id} in project {project.project_id}")
+                    return website.to_dict()
+            
+            self.logger.warning(f"Website {website_id} not found in any project")
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Error getting website {website_id}: {e}")
+            return None
+
+    def update_website(self, website_id: str, update_data: Dict[str, Any]) -> bool:
+        """
+        Update website details
+        
+        Args:
+            website_id: Website ID to update
+            update_data: Dictionary containing fields to update
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Find the project containing this website
+            projects = self.project_repo.get_all_projects()
+            
+            for project in projects:
+                website = project.get_website(website_id)
+                if website:
+                    # Update website fields
+                    if 'name' in update_data:
+                        website.name = update_data['name']
+                    if 'base_url' in update_data:
+                        website.url = update_data['base_url']
+                    if 'description' in update_data:
+                        website.description = update_data['description']
+                    if 'scraping_config' in update_data:
+                        website.scraping_config = update_data['scraping_config']
+                    
+                    # Update the project in database
+                    success = self.project_repo.update(
+                        project.project_id, 
+                        {'websites': [w.to_dict() for w in project.websites]}
+                    )
+                    
+                    if success:
+                        self.logger.info(f"Updated website {website_id}")
+                    return success
+            
+            self.logger.error(f"Website {website_id} not found for update")
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error updating website {website_id}: {e}")
+            return False
+
+    def delete_website(self, website_id: str) -> bool:
+        """
+        Delete a website and all its data
+        
+        Args:
+            website_id: Website ID to delete
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            self.logger.info(f"Starting deletion of website {website_id}")
+            
+            # Find the project containing this website
+            projects = self.project_repo.get_all_projects()
+            self.logger.info(f"Found {len(projects)} projects to search for website deletion")
+            
+            for project in projects:
+                self.logger.info(f"Checking project {project.project_id} for website {website_id}")
+                if project.get_website(website_id):
+                    self.logger.info(f"Found website {website_id} in project {project.project_id}")
+                    
+                    # Remove website from project
+                    success = project.remove_website(website_id)
+                    self.logger.info(f"Website removal from project: {success}")
+                    
+                    if success:
+                        # Update the project in database
+                        self.logger.info(f"Updating project {project.project_id} in database")
+                        success = self.project_repo.update(
+                            project.project_id, 
+                            {'websites': [w.to_dict() for w in project.websites]}
+                        )
+                        self.logger.info(f"Database update result: {success}")
+                        
+                        if success:
+                            self.logger.info(f"Successfully deleted website {website_id}")
+                            
+                            # Also delete all pages for this website
+                            # We need the project_id, so we'll get it from the project
+                            page_delete_result = self.page_repo.delete_pages_by_website(
+                                project.project_id, website_id
+                            )
+                            self.logger.info(f"Deleted {page_delete_result} pages for website {website_id}")
+                        
+                        return success
+                    else:
+                        self.logger.error(f"Failed to remove website {website_id} from project")
+                        return False
+            
+            self.logger.error(f"Website {website_id} not found in any project for deletion")
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error deleting website {website_id}: {e}")
+            return False
+
     def get_website_pages(self, project_id: str, website_id: str) -> Dict[str, Any]:
         """
         Get all pages for a website
@@ -238,6 +391,9 @@ class WebsiteManager(LoggerMixin):
             for page in pages:
                 page_data = page.to_dict()
                 page_data['page_id'] = page.page_id
+                
+                # Debug logging
+                self.logger.info(f"DEBUG: Page URL: {page.url}, page_id: '{page.page_id}', type: {type(page.page_id)}")
                 
                 # Add test status
                 if page.last_tested:
@@ -381,7 +537,7 @@ class WebsiteManager(LoggerMixin):
                     
                     # Add the page
                     page_id = self.page_repo.create_page(
-                        project_id, website_id, url, "", discovered_method
+                        project_id, website_id, url, "", "", discovered_method
                     )
                     
                     results['added'].append({
@@ -508,3 +664,67 @@ class WebsiteManager(LoggerMixin):
             return all([result.scheme, result.netloc]) and result.scheme in ['http', 'https']
         except Exception:
             return False
+    
+    def update_page_test_results(self, project_id: str, website_id: str, page_id: str, 
+                                test_results: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update a page with accessibility test results
+        
+        Args:
+            project_id: Project ID
+            website_id: Website ID
+            page_id: Page ID
+            test_results: Dictionary containing test results (issues, test_date, etc.)
+        
+        Returns:
+            Dictionary with success status
+        """
+        try:
+            # Verify page exists and belongs to project/website
+            page = self.page_repo.get_page(page_id)
+            if not page:
+                return {
+                    'success': False,
+                    'error': 'Page not found'
+                }
+            
+            if page.project_id != project_id or page.website_id != website_id:
+                return {
+                    'success': False,
+                    'error': 'Page does not belong to this project/website'
+                }
+            
+            # Prepare update data
+            update_data = {}
+            
+            if 'issues' in test_results:
+                update_data['issues'] = test_results['issues']
+            
+            if 'test_date' in test_results:
+                if test_results['test_date'] is None:
+                    # Set current timestamp
+                    update_data['last_tested'] = datetime.datetime.utcnow()
+                else:
+                    update_data['last_tested'] = test_results['test_date']
+            
+            # Update the page
+            success = self.page_repo.update(page_id, update_data)
+            
+            if success:
+                self.logger.info(f"Updated test results for page {page_id}")
+                return {
+                    'success': True,
+                    'page_id': page_id
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'Failed to update page test results'
+                }
+        
+        except Exception as e:
+            self.logger.error(f"Error updating page test results for {page_id}: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }

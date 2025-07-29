@@ -71,6 +71,41 @@
         </div>
     </header>
     
+    <!-- Testing progress (hidden by default) -->
+    <div id="testing-progress" class="testing-progress" hidden>
+        <div class="testing-header">
+            <h2 class="testing-title">
+                <svg class="testing-icon animate-spin" aria-hidden="true" width="20" height="20">
+                    <polygon points="5,3 19,12 5,21" fill="currentColor"/>
+                </svg>
+                Running Accessibility Tests...
+            </h2>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="cancelTesting()">
+                Cancel
+            </button>
+        </div>
+        <div class="testing-stats">
+            <div class="testing-stat">
+                <span class="testing-stat-value" id="pages-tested">0</span>
+                <span class="testing-stat-label">pages tested</span>
+            </div>
+            <div class="testing-stat">
+                <span class="testing-stat-value" id="issues-found">0</span>
+                <span class="testing-stat-label">issues found</span>
+            </div>
+            <div class="testing-stat">
+                <span class="testing-stat-value" id="test-time-elapsed">0s</span>
+                <span class="testing-stat-label">elapsed</span>
+            </div>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="test-progress-fill" style="width: 0%"></div>
+        </div>
+        <div class="testing-current-page">
+            Testing: <span id="current-page-url">-</span>
+        </div>
+    </div>
+    
     <!-- Website statistics -->
     <section class="stats-section" aria-labelledby="stats-title">
         <h2 id="stats-title" class="section-title">Overview</h2>
@@ -131,6 +166,13 @@
         <div class="section-header">
             <h2 id="pages-title" class="section-title">Discovered Pages</h2>
             <div class="section-actions">
+                <a href="{{ url_for('pages.list_pages', project_id=project.project_id, website_id=website.website_id) }}" class="btn btn-primary btn-sm">
+                    <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+                        <path d="M14 2H6A2 2 0 004 4V20A2 2 0 006 22H18A2 2 0 0020 20V8L14 2Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <polyline points="14,2 14,8 20,8" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                    Manage Pages
+                </a>
                 <button type="button" class="btn btn-ghost btn-sm" onclick="addPage()">
                     <svg class="btn-icon" aria-hidden="true" width="16" height="16">
                         <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/>
@@ -295,7 +337,13 @@
         <div class="config-grid">
             <div class="config-item">
                 <dt class="config-label">Max Crawl Depth</dt>
-                <dd class="config-value">{{ website.scraping_config.max_depth }} levels</dd>
+                <dd class="config-value">
+                    {% if website.scraping_config.max_depth == 'unlimited' %}
+                        Unlimited
+                    {% else %}
+                        {{ website.scraping_config.max_depth }} levels
+                    {% endif %}
+                </dd>
             </div>
             
             <div class="config-item">
@@ -426,6 +474,70 @@
     .website-actions .btn {
         flex: 1;
     }
+}
+
+/* Testing progress */
+.testing-progress {
+    background-color: #e8f5e8;
+    border: 1px solid #4caf50;
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-2xl);
+}
+
+.testing-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+}
+
+.testing-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: #2e7d32;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    margin: 0;
+}
+
+.testing-icon {
+    color: #4caf50;
+}
+
+.testing-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.testing-stat {
+    text-align: center;
+}
+
+.testing-stat-value {
+    display: block;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: #2e7d32;
+    line-height: 1;
+    margin-bottom: var(--spacing-xs);
+}
+
+.testing-stat-label {
+    font-size: var(--font-size-sm);
+    color: #5d4037;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.testing-current-page {
+    font-size: var(--font-size-sm);
+    color: #5d4037;
+    margin-top: var(--spacing-sm);
+    text-align: center;
 }
 
 /* Statistics - reuse from project detail */
@@ -783,6 +895,8 @@
 
 {% block extra_js %}
 <script>
+let testingInterval = null;
+
 function scanWebsite() {
     const button = document.getElementById('scan-btn');
     const originalText = button.innerHTML;
@@ -834,34 +948,141 @@ function testWebsite() {
         <svg class="btn-icon animate-spin" aria-hidden="true" width="16" height="16">
             <path d="M21 12A9 9 0 0112 3" stroke="currentColor" fill="none" stroke-width="2"/>
         </svg>
-        Testing...
+        Starting...
     `;
     
     // Make AJAX request to start testing
-    fetch(`{{ url_for('websites.test_website', project_id=project.project_id, website_id=website.website_id) }}`, {
+    const testUrl = `{{ url_for('websites.test_website', project_id=project.project_id, website_id=website.website_id) }}`;
+    console.log('Starting test request to:', testUrl);
+    
+    fetch(testUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Test response status:', response.status);
+        console.log('Test response headers:', response.headers);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log('Test response data:', data);
         if (data.success) {
-            // Show success message and reload page after delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 3000);
+            // Show progress section
+            document.getElementById('testing-progress').hidden = false;
+            
+            // Start polling for status
+            testingInterval = setInterval(checkTestingStatus, 1000);
         } else {
-            // Show error message
             button.disabled = false;
             button.innerHTML = originalText;
             console.error('Test failed:', data.error);
+            alert('Error: ' + (data.error || 'Failed to start testing'));
         }
     })
     .catch(error => {
         button.disabled = false;
         button.innerHTML = originalText;
         console.error('Test error:', error);
+        alert('Error starting test: ' + error.message);
+    });
+}
+
+function checkTestingStatus() {
+    const statusUrl = `{{ url_for('websites.test_status', project_id=project.project_id, website_id=website.website_id) }}`;
+    console.log('Checking test status at:', statusUrl);
+    
+    fetch(statusUrl)
+    .then(response => {
+        console.log('Status response:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Status data:', data);
+        if (data.status === 'not_running') {
+            stopTestingPolling();
+            return;
+        }
+        
+        // Update progress
+        document.getElementById('pages-tested').textContent = data.pages_tested || 0;
+        document.getElementById('issues-found').textContent = data.issues_found || 0;
+        document.getElementById('test-time-elapsed').textContent = `${data.elapsed_time || 0}s`;
+        document.getElementById('test-progress-fill').style.width = `${data.progress || 0}%`;
+        
+        // Update current page being tested
+        if (data.current_page) {
+            document.getElementById('current-page-url').textContent = data.current_page;
+        }
+        
+        if (data.status === 'completed' || data.status === 'error') {
+            stopTestingPolling();
+            
+            if (data.status === 'completed') {
+                // Show completion message
+                document.querySelector('.testing-title').innerHTML = `
+                    <svg class="testing-icon" aria-hidden="true" width="20" height="20">
+                        <path d="M22 11.08V12A10 10 0 1112 2A10 10 0 0122 11.08Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" fill="none" stroke-width="2"/>
+                    </svg>
+                    Testing Complete!
+                `;
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
+            } else {
+                // Show error message
+                document.querySelector('.testing-title').innerHTML = `
+                    <svg class="testing-icon" aria-hidden="true" width="20" height="20">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/>
+                        <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Testing Failed
+                `;
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Status check error:', error);
+    });
+}
+
+function stopTestingPolling() {
+    if (testingInterval) {
+        clearInterval(testingInterval);
+        testingInterval = null;
+    }
+    
+    // Reset button
+    const button = document.getElementById('test-btn');
+    button.disabled = false;
+    button.innerHTML = `
+        <svg class="btn-icon" aria-hidden="true" width="16" height="16">
+            <polygon points="5,3 19,12 5,21" fill="currentColor"/>
+        </svg>
+        Run Tests
+    `;
+}
+
+function cancelTesting() {
+    fetch(`{{ url_for('websites.cancel_test', project_id=project.project_id, website_id=website.website_id) }}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            stopTestingPolling();
+            document.getElementById('testing-progress').hidden = true;
+        }
     });
 }
 
@@ -871,8 +1092,10 @@ function testPage(pageId) {
 }
 
 function addPage() {
-    console.log('Add page manually');
-    // TODO: Implement manual page addition
+    // Redirect to the add page form
+    const projectId = '{{ project.project_id }}';
+    const websiteId = '{{ website.website_id }}';
+    window.location.href = `/projects/${projectId}/websites/${websiteId}/pages/add`;
 }
 
 // Add spinning animation for loading states  

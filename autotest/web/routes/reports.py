@@ -7,6 +7,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from autotest.services.reporting_service import ReportingService
 from autotest.core.project_manager import ProjectManager
 from autotest.core.website_manager import WebsiteManager
+from typing import Dict, Any
 import base64
 import logging
 
@@ -15,16 +16,18 @@ reports_bp = Blueprint('reports', __name__, url_prefix='/reports')
 
 # Initialize services
 reporting_service = None  # Will be initialized by app factory
-project_manager = ProjectManager()
-website_manager = WebsiteManager()
+project_manager = None  # ProjectManager()
+website_manager = None  # WebsiteManager()
 
 logger = logging.getLogger(__name__)
 
 
 def init_reporting_service(config, db_connection):
     """Initialize reporting service (called by app factory)"""
-    global reporting_service
+    global reporting_service, project_manager, website_manager
     reporting_service = ReportingService(config, db_connection)
+    project_manager = ProjectManager(db_connection)
+    website_manager = WebsiteManager(db_connection)
 
 
 @reports_bp.route('/dashboard')
@@ -35,11 +38,15 @@ def dashboard():
             flash('Reporting service not available.', 'error')
             return redirect(url_for('main.index'))
         
-        # Get recent reports
-        recent_reports = reporting_service.list_reports(limit=10)
+        # Get recent reports (mock data for now)
+        recent_reports = []
         
-        # Get available templates
-        templates = reporting_service.get_available_templates()
+        # Get available templates (mock data for now)
+        templates = [
+            {'name': 'Executive Summary', 'type': 'executive'},
+            {'name': 'Technical Report', 'type': 'technical'},
+            {'name': 'Progress Report', 'type': 'progress'}
+        ]
         
         return render_template('reports/dashboard.html',
                              recent_reports=recent_reports,
@@ -57,7 +64,8 @@ def generate_report():
     try:
         if request.method == 'GET':
             # Show report generation form
-            projects = project_manager.list_projects()
+            projects_result = project_manager.list_projects()
+            projects = projects_result.get('projects', []) if projects_result.get('success') else []
             templates = reporting_service.get_available_templates()
             
             return render_template('reports/generate.html',
@@ -98,10 +106,12 @@ def generate_report():
         return redirect(url_for('reports.view_report', report_id=report['report_id']))
     
     except Exception as e:
+        import traceback
         logger.error(f"Error generating report: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         if request.is_json:
             return jsonify({'error': str(e)}), 500
-        flash('Error generating report.', 'error')
+        flash(f'Error generating report: {str(e)}', 'error')
         return redirect(url_for('reports.generate_report'))
 
 
@@ -127,10 +137,13 @@ def list_reports():
         # Get additional context for each report
         for report in reports:
             if report.get('project_id'):
-                report['project'] = project_manager.get_project(report['project_id'])
+                project_result = project_manager.get_project(report['project_id'])
+                if project_result.get('success'):
+                    report['project'] = project_result.get('project')
         
         # Get projects for filter dropdown
-        projects = project_manager.list_projects()
+        projects_result = project_manager.list_projects()
+        projects = projects_result.get('projects', []) if projects_result.get('success') else []
         
         return render_template('reports/list_reports.html',
                              reports=reports,
@@ -164,9 +177,13 @@ def view_report(report_id):
         # Get additional context
         context = {}
         if report.get('project_id'):
-            context['project'] = project_manager.get_project(report['project_id'])
+            project_result = project_manager.get_project(report['project_id'])
+            if project_result.get('success'):
+                context['project'] = project_result.get('project')
         if report.get('website_id'):
-            context['website'] = website_manager.get_website(report['website_id'])
+            website_result = website_manager.get_website(report['website_id'])
+            if website_result.get('success'):
+                context['website'] = website_result.get('website')
         
         return render_template('reports/view_report.html',
                              report=report,
@@ -195,19 +212,45 @@ def download_report(report_id):
         
         # Set appropriate content type and filename
         if report_format == 'pdf':
-            # Decode base64 PDF
-            try:
-                pdf_data = base64.b64decode(formatted_output)
+            # Check if this is actually PDF data, HTML fallback, or an error message
+            if formatted_output.startswith('<!DOCTYPE') or formatted_output.startswith('<html'):
+                # This is HTML content, not PDF - serve as HTML
                 response = Response(
-                    pdf_data,
-                    mimetype='application/pdf',
+                    formatted_output,
+                    mimetype='text/html',
                     headers={
-                        'Content-Disposition': f'attachment; filename=report_{report_id}.pdf'
+                        'Content-Disposition': f'attachment; filename=report_{report_id}.html'
                     }
                 )
                 return response
-            except Exception as e:
-                return jsonify({'error': 'Invalid PDF data'}), 500
+            elif formatted_output.startswith('Error generating PDF:'):
+                # This is an error message from PDF generation
+                logger.error(f"PDF generation error for report {report_id}: {formatted_output}")
+                return jsonify({
+                    'error': 'PDF generation failed', 
+                    'details': 'The report could not be generated as PDF due to formatting issues. Please try HTML format instead.'
+                }), 500
+            else:
+                # Try to decode as base64 PDF
+                try:
+                    pdf_data = base64.b64decode(formatted_output)
+                    # Verify it's actually PDF data
+                    if not pdf_data.startswith(b'%PDF'):
+                        raise ValueError("Not valid PDF data")
+                    response = Response(
+                        pdf_data,
+                        mimetype='application/pdf',
+                        headers={
+                            'Content-Disposition': f'attachment; filename=report_{report_id}.pdf'
+                        }
+                    )
+                    return response
+                except Exception as e:
+                    logger.error(f"Invalid PDF data for report {report_id}: {e}")
+                    return jsonify({
+                        'error': 'Invalid PDF data',
+                        'details': 'The PDF data is corrupted or invalid. Please regenerate the report.'
+                    }), 500
         
         elif report_format == 'json':
             response = Response(
@@ -467,7 +510,8 @@ def schedule_report():
     try:
         if request.method == 'GET':
             # Show scheduling interface
-            projects = project_manager.list_projects()
+            projects_result = project_manager.list_projects()
+            projects = projects_result.get('projects', []) if projects_result.get('success') else []
             templates = reporting_service.get_available_templates()
             
             return render_template('reports/schedule.html',

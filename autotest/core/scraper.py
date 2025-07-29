@@ -46,6 +46,17 @@ class WebScraper(LoggerMixin):
         self.request_delay = config.get('scraping.request_delay', 1.0)
         self.user_agent = config.get('scraping.user_agent', 'AutoTest Accessibility Scanner/1.0')
         self.timeout = config.get('testing.timeout', 30)
+        self.website_config = {}
+    
+    def configure(self, website_config: Dict[str, Any]) -> None:
+        """
+        Configure scraper with website-specific settings
+        
+        Args:
+            website_config: Website scraping configuration dictionary
+        """
+        self.website_config = website_config
+        self.logger.debug(f"Scraper configured with: {website_config}")
     
     def _setup_driver(self, browser: str = 'chrome', headless: bool = True) -> bool:
         """
@@ -205,7 +216,7 @@ class WebScraper(LoggerMixin):
             self.driver.get(url)
             
             # Wait for page to load
-            WebDriverWait(self.driver, 10).until(
+            WebDriverWait(self.driver, 5).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
             
@@ -260,7 +271,7 @@ class WebScraper(LoggerMixin):
         """
         try:
             self.driver.get(url)
-            WebDriverWait(self.driver, 10).until(
+            WebDriverWait(self.driver, 5).until(
                 EC.presence_of_element_located((By.TAG_NAME, "title"))
             )
             return self.driver.title
@@ -269,7 +280,7 @@ class WebScraper(LoggerMixin):
             return ""
     
     def scrape_website(self, project_id: str, website_id: str, 
-                      max_pages: int = 100, depth_limit: int = 3,
+                      max_pages: int = 100, depth_limit = 'unlimited',
                       include_external: bool = False) -> Dict[str, Any]:
         """
         Scrape a website to discover pages
@@ -278,7 +289,7 @@ class WebScraper(LoggerMixin):
             project_id: Project ID
             website_id: Website ID
             max_pages: Maximum number of pages to discover
-            depth_limit: Maximum crawling depth
+            depth_limit: Maximum crawling depth ('unlimited' or integer)
             include_external: Include external links
         
         Returns:
@@ -325,7 +336,7 @@ class WebScraper(LoggerMixin):
                     current_url, depth = url_queue.pop(0)
                     
                     # Skip if already processed or depth exceeded
-                    if current_url in processed_urls or depth > depth_limit:
+                    if current_url in processed_urls or (depth_limit != 'unlimited' and depth > depth_limit):
                         continue
                     
                     processed_urls.add(current_url)
@@ -352,7 +363,7 @@ class WebScraper(LoggerMixin):
                                 discovered_urls.add(link)
                                 
                                 # Add to queue for further crawling if within depth limit
-                                if depth < depth_limit:
+                                if depth_limit == 'unlimited' or depth < depth_limit:
                                     url_queue.append((link, depth + 1))
                     
                     # Add delay between requests
@@ -442,7 +453,7 @@ class WebScraper(LoggerMixin):
                 self.driver.get(url)
                 
                 # Wait for page to load
-                WebDriverWait(self.driver, 10).until(
+                WebDriverWait(self.driver, 5).until(
                     EC.presence_of_element_located((By.TAG_NAME, "body"))
                 )
                 

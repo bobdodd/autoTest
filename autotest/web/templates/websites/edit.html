@@ -79,7 +79,7 @@
                             id="base_url" 
                             name="base_url" 
                             class="form-input"
-                            value="{{ website.base_url }}"
+                            value="{{ website.url }}"
                             required
                             aria-describedby="base_url-help"
                         >
@@ -117,14 +117,15 @@
                                 Maximum Crawl Depth
                             </label>
                             <select id="max_depth" name="max_depth" class="form-select" aria-describedby="max_depth-help">
-                                <option value="1" {{ 'selected' if website.scraping_config.max_depth == 1 else '' }}>1 level (homepage only)</option>
-                                <option value="2" {{ 'selected' if website.scraping_config.max_depth == 2 else '' }}>2 levels</option>
-                                <option value="3" {{ 'selected' if website.scraping_config.max_depth == 3 else '' }}>3 levels (recommended)</option>
-                                <option value="4" {{ 'selected' if website.scraping_config.max_depth == 4 else '' }}>4 levels</option>
-                                <option value="5" {{ 'selected' if website.scraping_config.max_depth == 5 else '' }}>5 levels (deep crawl)</option>
+                                <option value="unlimited" {{ 'selected' if website.scraping_config.get('max_depth', 'unlimited') == 'unlimited' else '' }}>Unlimited (recommended)</option>
+                                <option value="1" {{ 'selected' if website.scraping_config.get('max_depth', 'unlimited') == 1 else '' }}>1 level (homepage only)</option>
+                                <option value="2" {{ 'selected' if website.scraping_config.get('max_depth', 'unlimited') == 2 else '' }}>2 levels</option>
+                                <option value="3" {{ 'selected' if website.scraping_config.get('max_depth', 'unlimited') == 3 else '' }}>3 levels</option>
+                                <option value="4" {{ 'selected' if website.scraping_config.get('max_depth', 'unlimited') == 4 else '' }}>4 levels</option>
+                                <option value="5" {{ 'selected' if website.scraping_config.get('max_depth', 'unlimited') == 5 else '' }}>5 levels</option>
                             </select>
                             <div id="max_depth-help" class="form-help">
-                                How many levels deep to follow links from the base URL.
+                                How many levels deep to follow links from the base URL. For accessibility testing, unlimited is recommended to test all pages.
                             </div>
                         </div>
                         
@@ -133,12 +134,12 @@
                                 Maximum Pages
                             </label>
                             <select id="max_pages" name="max_pages" class="form-select" aria-describedby="max_pages-help">
-                                <option value="25" {{ 'selected' if website.scraping_config.max_pages == 25 else '' }}>25 pages</option>
-                                <option value="50" {{ 'selected' if website.scraping_config.max_pages == 50 else '' }}>50 pages</option>
-                                <option value="100" {{ 'selected' if website.scraping_config.max_pages == 100 else '' }}>100 pages</option>
-                                <option value="250" {{ 'selected' if website.scraping_config.max_pages == 250 else '' }}>250 pages</option>
-                                <option value="500" {{ 'selected' if website.scraping_config.max_pages == 500 else '' }}>500 pages</option>
-                                <option value="1000" {{ 'selected' if website.scraping_config.max_pages == 1000 else '' }}>1000 pages</option>
+                                <option value="25" {{ 'selected' if website.scraping_config.get('max_pages', 100) == 25 else '' }}>25 pages</option>
+                                <option value="50" {{ 'selected' if website.scraping_config.get('max_pages', 100) == 50 else '' }}>50 pages</option>
+                                <option value="100" {{ 'selected' if website.scraping_config.get('max_pages', 100) == 100 else '' }}>100 pages</option>
+                                <option value="250" {{ 'selected' if website.scraping_config.get('max_pages', 100) == 250 else '' }}>250 pages</option>
+                                <option value="500" {{ 'selected' if website.scraping_config.get('max_pages', 100) == 500 else '' }}>500 pages</option>
+                                <option value="1000" {{ 'selected' if website.scraping_config.get('max_pages', 100) == 1000 else '' }}>1000 pages</option>
                             </select>
                             <div id="max_pages-help" class="form-help">
                                 Maximum number of pages to discover and test.
@@ -156,7 +157,7 @@
                                     id="respect_robots" 
                                     name="respect_robots" 
                                     class="form-checkbox"
-                                    {{ 'checked' if website.scraping_config.respect_robots_txt else '' }}
+                                    {{ 'checked' if website.scraping_config.get('respect_robots_txt', True) else '' }}
                                 >
                                 <label for="respect_robots" class="checkbox-label">
                                     Respect robots.txt
@@ -170,7 +171,7 @@
                                     id="follow_external" 
                                     name="follow_external" 
                                     class="form-checkbox"
-                                    {{ 'checked' if website.scraping_config.follow_external_links else '' }}
+                                    {{ 'checked' if website.scraping_config.get('follow_external_links', False) else '' }}
                                 >
                                 <label for="follow_external" class="checkbox-label">
                                     Follow external links

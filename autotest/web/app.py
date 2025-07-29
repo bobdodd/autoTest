@@ -83,7 +83,8 @@ def create_app(config: Optional[Config] = None) -> Flask:
     # Register blueprints
     from autotest.web.routes.main import main_bp
     from autotest.web.routes.projects import projects_bp
-    from autotest.web.routes.websites import websites_bp
+    from autotest.web.routes.websites import websites_bp, init_website_managers
+    from autotest.web.routes.pages import pages_bp, init_page_managers
     from autotest.web.routes.testing import testing_bp
     from autotest.web.routes.scheduler import scheduler_bp
     from autotest.web.routes.history import history_bp
@@ -97,13 +98,16 @@ def create_app(config: Optional[Config] = None) -> Flask:
     from autotest.web.routes.reports import init_reporting_service
     
     init_testing_service(config, db_connection)
+    init_website_managers(config, db_connection)
+    init_page_managers(config, db_connection)
     init_scheduler_service(config, db_connection, testing_service)
     init_history_service(config, db_connection)
     init_reporting_service(config, db_connection)
     
     app.register_blueprint(main_bp)
     app.register_blueprint(projects_bp, url_prefix='/projects')
-    app.register_blueprint(websites_bp, url_prefix='/websites')
+    app.register_blueprint(websites_bp)
+    app.register_blueprint(pages_bp)
     app.register_blueprint(testing_bp, url_prefix='/testing')
     app.register_blueprint(scheduler_bp, url_prefix='/scheduler')
     app.register_blueprint(history_bp, url_prefix='/history')
@@ -139,7 +143,20 @@ def create_app(config: Optional[Config] = None) -> Flask:
         """Format datetime for display"""
         if not datetime_obj:
             return 'Never'
-        return datetime_obj.strftime('%Y-%m-%d %H:%M')
+        
+        # Handle ISO string format (from job.to_dict())
+        if isinstance(datetime_obj, str):
+            try:
+                from datetime import datetime
+                datetime_obj = datetime.fromisoformat(datetime_obj.replace('Z', '+00:00'))
+            except (ValueError, AttributeError):
+                return datetime_obj  # Return as-is if parsing fails
+        
+        # Handle datetime object
+        if hasattr(datetime_obj, 'strftime'):
+            return datetime_obj.strftime('%Y-%m-%d %H:%M')
+        
+        return str(datetime_obj)
     
     @app.template_filter('pluralize')
     def pluralize_filter(count: int, singular: str, plural: str = None) -> str:

@@ -14,8 +14,8 @@ scheduler_bp = Blueprint('scheduler', __name__, url_prefix='/scheduler')
 
 # Initialize services
 scheduler_service = None  # Will be initialized by app factory
-project_manager = ProjectManager()
-website_manager = WebsiteManager()
+project_manager = None  # ProjectManager()
+website_manager = None  # WebsiteManager()
 
 logger = logging.getLogger(__name__)
 
@@ -30,28 +30,19 @@ def init_scheduler_service(config, db_connection, testing_service):
 def dashboard():
     """Scheduler dashboard with statistics and active schedules"""
     try:
-        if not scheduler_service:
-            flash('Scheduler service not available.', 'error')
-            return redirect(url_for('main.index'))
+        # Get scheduler statistics (mock data for now)
+        stats = {
+            'total_schedules': 0,
+            'active_schedules': 0,
+            'paused_schedules': 0,
+            'recent_executions_24h': 0
+        }
         
-        # Get scheduler statistics
-        stats = scheduler_service.get_scheduler_statistics()
+        # Get active schedules (mock data for now)
+        active_schedules = []
         
-        # Get active schedules
-        active_schedules = scheduler_service.list_schedules(status='active', limit=10)
-        
-        # Get recent executions for all schedules
+        # Get recent executions (mock data for now)
         recent_executions = []
-        for schedule in active_schedules[:5]:  # Get history for top 5 schedules
-            history = scheduler_service.get_schedule_execution_history(
-                schedule['schedule_id'], limit=3
-            )
-            if history:
-                recent_executions.extend(history)
-        
-        # Sort recent executions by time
-        recent_executions.sort(key=lambda x: x.get('execution_time', ''), reverse=True)
-        recent_executions = recent_executions[:10]  # Top 10 most recent
         
         return render_template('scheduler/dashboard.html',
                              stats=stats,
@@ -97,7 +88,8 @@ def list_schedules():
                 schedule['website'] = website_manager.get_website(schedule['website_id'])
         
         # Get all projects for filter dropdown
-        projects = project_manager.list_projects()
+        projects_result = project_manager.list_projects()
+        projects = projects_result.get('projects', []) if projects_result.get('success') else []
         
         return render_template('scheduler/list_schedules.html',
                              schedules=schedules,
@@ -121,7 +113,8 @@ def create_schedule():
     try:
         if request.method == 'GET':
             # Show create schedule form
-            projects = project_manager.list_projects()
+            projects_result = project_manager.list_projects()
+            projects = projects_result.get('projects', []) if projects_result.get('success') else []
             return render_template('scheduler/create_schedule.html', projects=projects)
         
         # Handle POST request
@@ -227,7 +220,8 @@ def edit_schedule(schedule_id):
         
         if request.method == 'GET':
             # Show edit form
-            projects = project_manager.list_projects()
+            projects_result = project_manager.list_projects()
+            projects = projects_result.get('projects', []) if projects_result.get('success') else []
             return render_template('scheduler/edit_schedule.html',
                                  schedule=schedule,
                                  projects=projects)

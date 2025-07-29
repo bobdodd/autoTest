@@ -1,0 +1,589 @@
+"""
+Unit tests for AutoTest services
+"""
+
+import pytest
+from unittest.mock import Mock, patch, MagicMock
+from datetime import datetime, timezone, timedelta
+import json
+
+from autotest.services.testing_service import TestingService
+from autotest.services.scheduler_service import SchedulerService, ScheduledTest, ScheduleFrequency
+from autotest.services.history_service import HistoryService, HistorySnapshot
+from autotest.services.reporting_service import ReportingService, ReportTemplate
+
+class TestTestingService:
+    """Test cases for TestingService"""
+    
+    @pytest.fixture
+    def testing_service(self, mock_mongodb):
+        """TestingService instance with mocked database"""
+        with patch('autotest.services.testing_service.Database') as mock_db_class:
+            mock_db = Mock()
+            mock_db_class.return_value = mock_db
+            
+            service = TestingService()
+            service.db = mock_db
+            return service, mock_db
+    
+    def test_run_accessibility_test(self, testing_service, sample_page):
+        """Test running accessibility test on a page"""
+        service, mock_db = testing_service
+        
+        # Mock the accessibility tester
+        with patch('autotest.services.testing_service.AccessibilityTester') as mock_tester_class:
+            mock_tester = Mock()
+            mock_tester_class.return_value = mock_tester
+            
+            # Mock test results
+            mock_violations = [
+                {'rule_id': 'color_contrast', 'severity': 'serious'},
+                {'rule_id': 'alt_text', 'severity': 'minor'}
+            ]
+            mock_tester.run_accessibility_tests.return_value = mock_violations
+            mock_tester.calculate_score.return_value = 75
+            
+            # Mock database operations
+            mock_db.insert.return_value = 'test_result_id'
+            mock_db.update.return_value = True
+            
+            result_id = service.run_accessibility_test(
+                page_id=sample_page.id,
+                project_id=sample_page.project_id,
+                url=sample_page.url,
+                wcag_level='AA'
+            )
+            
+            assert result_id == 'test_result_id'
+            mock_tester.load_page.assert_called_with(sample_page.url)
+            mock_tester.run_accessibility_tests.assert_called()
+            mock_db.insert.assert_called()
+    
+    def test_run_batch_test(self, testing_service):
+        """Test running batch accessibility tests"""
+        service, mock_db = testing_service
+        
+        # Mock page data
+        mock_pages = [
+            {'_id': 'page1', 'url': 'https://example.com/page1', 'project_id': 'proj1'},
+            {'_id': 'page2', 'url': 'https://example.com/page2', 'project_id': 'proj1'}
+        ]
+        mock_db.find.return_value = mock_pages
+        
+        with patch.object(service, 'run_accessibility_test') as mock_single_test:
+            mock_single_test.return_value = 'test_result_id'
+            
+            results = service.run_batch_test('proj1', wcag_level='AA')
+            
+            assert results['total_pages'] == 2
+            assert results['completed_pages'] == 2
+            assert len(results['test_results']) == 2
+            assert mock_single_test.call_count == 2
+    
+    def test_get_test_results(self, testing_service):
+        """Test retrieving test results"""
+        service, mock_db = testing_service
+        
+        # Mock test result data
+        mock_results = [
+            {
+                '_id': 'result1',
+                'page_id': 'page1',
+                'score': 85,
+                'violations': [],
+                'test_date': datetime.now(timezone.utc)
+            },
+            {
+                '_id': 'result2',
+                'page_id': 'page2',
+                'score': 70,
+                'violations': [{'rule_id': 'color_contrast'}],
+                'test_date': datetime.now(timezone.utc)
+            }
+        ]
+        mock_db.find.return_value = mock_results
+        
+        results = service.get_test_results('proj1')
+        
+        assert len(results) == 2
+        assert results[0]['score'] == 85
+        mock_db.find.assert_called_with('test_results', {'project_id': 'proj1'})
+    
+    def test_get_project_statistics(self, testing_service):
+        """Test getting project statistics"""
+        service, mock_db = testing_service
+        
+        # Mock aggregation result
+        mock_stats = [{
+            '_id': None,
+            'total_tests': 10,
+            'average_score': 82.5,
+            'total_violations': 25,
+            'pages_tested': 8
+        }]
+        mock_db.aggregate.return_value = mock_stats
+        
+        stats = service.get_project_statistics('proj1')
+        
+        assert stats['total_tests'] == 10
+        assert stats['average_score'] == 82.5
+        assert stats['total_violations'] == 25
+        assert stats['pages_tested'] == 8
+    
+    def test_filter_violations_by_severity(self, testing_service):
+        """Test filtering violations by severity"""
+        service, _ = testing_service
+        
+        violations = [
+            {'rule_id': 'rule1', 'severity': 'critical'},
+            {'rule_id': 'rule2', 'severity': 'serious'},
+            {'rule_id': 'rule3', 'severity': 'moderate'},
+            {'rule_id': 'rule4', 'severity': 'minor'}
+        ]
+        
+        # Test filtering by single severity
+        critical_violations = service.filter_violations_by_severity(violations, ['critical'])
+        assert len(critical_violations) == 1
+        assert critical_violations[0]['severity'] == 'critical'
+        
+        # Test filtering by multiple severities
+        high_priority = service.filter_violations_by_severity(violations, ['critical', 'serious'])
+        assert len(high_priority) == 2
+
+class TestSchedulerService:
+    """Test cases for SchedulerService"""
+    
+    @pytest.fixture
+    def scheduler_service(self, mock_mongodb):
+        """SchedulerService instance with mocked database"""
+        with patch('autotest.services.scheduler_service.Database') as mock_db_class:
+            mock_db = Mock()
+            mock_db_class.return_value = mock_db
+            
+            service = SchedulerService()
+            service.db = mock_db
+            return service, mock_db
+    
+    def test_create_schedule(self, scheduler_service):
+        """Test creating a new schedule"""
+        service, mock_db = scheduler_service
+        
+        # Mock successful insertion
+        mock_db.insert.return_value = 'schedule_id'
+        
+        schedule_id = service.create_schedule(
+            project_id='proj1',
+            name='Daily Test',
+            frequency=ScheduleFrequency.DAILY,
+            time='09:00',
+            enabled=True
+        )
+        
+        assert schedule_id == 'schedule_id'
+        mock_db.insert.assert_called_once()
+        
+        # Verify the schedule document structure
+        call_args = mock_db.insert.call_args
+        schedule_doc = call_args[0][1]
+        assert schedule_doc['project_id'] == 'proj1'
+        assert schedule_doc['name'] == 'Daily Test'
+        assert schedule_doc['frequency'] == ScheduleFrequency.DAILY.value
+        assert schedule_doc['enabled'] is True
+    
+    def test_get_due_schedules(self, scheduler_service):
+        """Test getting schedules that are due"""
+        service, mock_db = scheduler_service
+        
+        now = datetime.now(timezone.utc)
+        
+        # Mock due schedules
+        mock_schedules = [
+            {
+                '_id': 'schedule1',
+                'project_id': 'proj1',
+                'frequency': ScheduleFrequency.DAILY.value,
+                'next_run': now - timedelta(minutes=1),  # Past due
+                'enabled': True
+            },
+            {
+                '_id': 'schedule2',
+                'project_id': 'proj2',
+                'frequency': ScheduleFrequency.WEEKLY.value,
+                'next_run': now + timedelta(hours=1),  # Not due yet
+                'enabled': True
+            }
+        ]
+        mock_db.find.return_value = mock_schedules
+        
+        due_schedules = service.get_due_schedules()
+        
+        # Should only return schedules that are past due
+        assert len(due_schedules) == 1
+        assert due_schedules[0].id == 'schedule1'
+    
+    def test_execute_schedule(self, scheduler_service):
+        """Test executing a scheduled test"""
+        service, mock_db = scheduler_service
+        
+        # Create a test schedule
+        schedule = ScheduledTest(
+            project_id='proj1',
+            name='Test Schedule',
+            frequency=ScheduleFrequency.DAILY,
+            time='09:00',
+            enabled=True
+        )
+        schedule.id = 'schedule1'
+        
+        # Mock TestingService
+        with patch('autotest.services.scheduler_service.TestingService') as mock_testing_service:
+            mock_testing = Mock()
+            mock_testing_service.return_value = mock_testing
+            mock_testing.run_batch_test.return_value = {
+                'total_pages': 5,
+                'completed_pages': 5,
+                'test_results': ['result1', 'result2']
+            }
+            
+            # Mock database operations
+            mock_db.update.return_value = True
+            mock_db.insert.return_value = 'execution_id'
+            
+            result = service.execute_schedule(schedule)
+            
+            assert result['success'] is True
+            assert result['pages_tested'] == 5
+            mock_testing.run_batch_test.assert_called_with('proj1')
+            mock_db.update.assert_called()  # Updates next_run time
+    
+    def test_calculate_next_run(self, scheduler_service):
+        """Test calculating next run time"""
+        service, _ = scheduler_service
+        
+        base_time = datetime(2025, 1, 25, 9, 0, 0, tzinfo=timezone.utc)
+        
+        # Test daily frequency
+        next_daily = service.calculate_next_run(ScheduleFrequency.DAILY, base_time)
+        expected_daily = base_time + timedelta(days=1)
+        assert next_daily == expected_daily
+        
+        # Test weekly frequency
+        next_weekly = service.calculate_next_run(ScheduleFrequency.WEEKLY, base_time)
+        expected_weekly = base_time + timedelta(weeks=1)
+        assert next_weekly == expected_weekly
+        
+        # Test monthly frequency
+        next_monthly = service.calculate_next_run(ScheduleFrequency.MONTHLY, base_time)
+        # Should be next month, same day and time
+        assert next_monthly.month == 2 or (next_monthly.month == 1 and next_monthly.year == 2026)
+        assert next_monthly.day == 25
+        assert next_monthly.hour == 9
+
+class TestHistoryService:
+    """Test cases for HistoryService"""
+    
+    @pytest.fixture
+    def history_service(self, mock_mongodb):
+        """HistoryService instance with mocked database"""
+        with patch('autotest.services.history_service.Database') as mock_db_class:
+            mock_db = Mock()
+            mock_db_class.return_value = mock_db
+            
+            service = HistoryService()
+            service.db = mock_db
+            return service, mock_db
+    
+    def test_create_snapshot(self, history_service):
+        """Test creating a history snapshot"""
+        service, mock_db = history_service
+        
+        # Mock project statistics
+        project_stats = {
+            'total_pages': 10,
+            'average_score': 85.5,
+            'total_violations': 15,
+            'violation_breakdown': {
+                'critical': 1,
+                'serious': 3,
+                'moderate': 6,
+                'minor': 5
+            }
+        }
+        
+        # Mock successful insertion
+        mock_db.insert.return_value = 'snapshot_id'
+        
+        snapshot_id = service.create_snapshot('proj1', project_stats)
+        
+        assert snapshot_id == 'snapshot_id'
+        mock_db.insert.assert_called_once()
+        
+        # Verify snapshot document structure
+        call_args = mock_db.insert.call_args
+        snapshot_doc = call_args[0][1]
+        assert snapshot_doc['project_id'] == 'proj1'
+        assert snapshot_doc['stats'] == project_stats
+        assert 'timestamp' in snapshot_doc
+    
+    def test_get_project_history(self, history_service):
+        """Test retrieving project history"""
+        service, mock_db = history_service
+        
+        # Mock history snapshots
+        mock_snapshots = [
+            {
+                '_id': 'snap1',
+                'project_id': 'proj1',
+                'timestamp': datetime.now(timezone.utc) - timedelta(days=7),
+                'stats': {'average_score': 80}
+            },
+            {
+                '_id': 'snap2',
+                'project_id': 'proj1',
+                'timestamp': datetime.now(timezone.utc),
+                'stats': {'average_score': 85}
+            }
+        ]
+        mock_db.find.return_value = mock_snapshots
+        
+        history = service.get_project_history('proj1', days=30)
+        
+        assert len(history) == 2
+        assert history[0].stats['average_score'] == 80
+        mock_db.find.assert_called()
+    
+    def test_calculate_trend(self, history_service):
+        """Test trend calculation"""
+        service, _ = history_service
+        
+        # Create test snapshots with improving scores
+        snapshots = [
+            HistorySnapshot(
+                project_id='proj1',
+                stats={'average_score': 70},
+                timestamp=datetime.now(timezone.utc) - timedelta(days=14)
+            ),
+            HistorySnapshot(
+                project_id='proj1',
+                stats={'average_score': 75},
+                timestamp=datetime.now(timezone.utc) - timedelta(days=7)
+            ),
+            HistorySnapshot(
+                project_id='proj1',
+                stats={'average_score': 80},
+                timestamp=datetime.now(timezone.utc)
+            )
+        ]
+        
+        trend = service.calculate_trend(snapshots, 'average_score')
+        
+        assert trend['direction'] == 'improving'
+        assert trend['change_percentage'] > 0
+        assert trend['total_change'] == 10  # 80 - 70
+    
+    def test_generate_insights(self, history_service):
+        """Test generating historical insights"""
+        service, _ = history_service
+        
+        # Create test snapshots
+        snapshots = [
+            HistorySnapshot(
+                project_id='proj1',
+                stats={
+                    'average_score': 75,
+                    'total_violations': 20,
+                    'violation_breakdown': {'critical': 2, 'serious': 5}
+                },
+                timestamp=datetime.now(timezone.utc) - timedelta(days=7)
+            ),
+            HistorySnapshot(
+                project_id='proj1',
+                stats={
+                    'average_score': 80,
+                    'total_violations': 15,
+                    'violation_breakdown': {'critical': 1, 'serious': 3}
+                },
+                timestamp=datetime.now(timezone.utc)
+            )
+        ]
+        
+        insights = service.generate_insights(snapshots)
+        
+        assert len(insights) > 0
+        
+        # Should identify score improvement
+        score_insight = next(
+            (i for i in insights if 'score' in i['message'].lower()),
+            None
+        )
+        assert score_insight is not None
+        assert score_insight['type'] == 'improvement'
+
+class TestReportingService:
+    """Test cases for ReportingService"""
+    
+    @pytest.fixture
+    def reporting_service(self, mock_mongodb):
+        """ReportingService instance with mocked database"""
+        with patch('autotest.services.reporting_service.Database') as mock_db_class:
+            mock_db = Mock()
+            mock_db_class.return_value = mock_db
+            
+            service = ReportingService()
+            service.db = mock_db
+            return service, mock_db
+    
+    def test_generate_executive_report(self, reporting_service):
+        """Test generating executive summary report"""
+        service, mock_db = reporting_service
+        
+        # Mock project data
+        mock_project = {
+            '_id': 'proj1',
+            'name': 'Test Project',
+            'description': 'A test project'
+        }
+        mock_db.find_one.return_value = mock_project
+        
+        # Mock test results
+        mock_results = [
+            {'score': 85, 'violations': [{'severity': 'minor'}]},
+            {'score': 90, 'violations': []},
+            {'score': 75, 'violations': [{'severity': 'serious'}]}
+        ]
+        mock_db.find.return_value = mock_results
+        
+        report = service.generate_report('proj1', ReportTemplate.EXECUTIVE_SUMMARY)
+        
+        assert report['template'] == ReportTemplate.EXECUTIVE_SUMMARY.value
+        assert report['project_name'] == 'Test Project'
+        assert 'summary' in report
+        assert 'recommendations' in report
+        assert report['summary']['average_score'] == 83.33  # (85+90+75)/3
+    
+    def test_generate_technical_report(self, reporting_service):
+        """Test generating technical detailed report"""
+        service, mock_db = reporting_service
+        
+        # Mock project and results
+        mock_project = {'_id': 'proj1', 'name': 'Test Project'}
+        mock_db.find_one.return_value = mock_project
+        
+        mock_results = [
+            {
+                'page_id': 'page1',
+                'score': 80,
+                'violations': [
+                    {
+                        'rule_id': 'color_contrast',
+                        'severity': 'serious',
+                        'description': 'Poor contrast',
+                        'elements': [{'target': ['button']}]
+                    }
+                ]
+            }
+        ]
+        mock_db.find.return_value = mock_results
+        
+        report = service.generate_report('proj1', ReportTemplate.TECHNICAL_DETAILED)
+        
+        assert report['template'] == ReportTemplate.TECHNICAL_DETAILED.value
+        assert 'detailed_violations' in report
+        assert len(report['detailed_violations']) > 0
+        assert 'remediation_guide' in report
+    
+    def test_export_report_html(self, reporting_service, temp_dir):
+        """Test exporting report to HTML"""
+        service, _ = reporting_service
+        
+        report_data = {
+            'project_name': 'Test Project',
+            'summary': {'average_score': 85},
+            'template': 'executive_summary'
+        }
+        
+        output_path = f"{temp_dir}/test_report.html"
+        
+        with patch('builtins.open', create=True) as mock_open:
+            mock_file = Mock()
+            mock_open.return_value.__enter__.return_value = mock_file
+            
+            result_path = service.export_report(report_data, 'html', output_path)
+            
+            assert result_path == output_path
+            mock_open.assert_called_with(output_path, 'w', encoding='utf-8')
+            mock_file.write.assert_called()
+    
+    def test_export_report_json(self, reporting_service, temp_dir):
+        """Test exporting report to JSON"""
+        service, _ = reporting_service
+        
+        report_data = {
+            'project_name': 'Test Project',
+            'summary': {'average_score': 85}
+        }
+        
+        output_path = f"{temp_dir}/test_report.json"
+        
+        with patch('builtins.open', create=True) as mock_open:
+            mock_file = Mock()
+            mock_open.return_value.__enter__.return_value = mock_file
+            
+            result_path = service.export_report(report_data, 'json', output_path)
+            
+            assert result_path == output_path
+            mock_open.assert_called_with(output_path, 'w', encoding='utf-8')
+            mock_file.write.assert_called()
+    
+    def test_get_violation_statistics(self, reporting_service):
+        """Test getting violation statistics"""
+        service, _ = reporting_service
+        
+        violations = [
+            {'severity': 'critical', 'rule_id': 'rule1'},
+            {'severity': 'serious', 'rule_id': 'rule2'},
+            {'severity': 'serious', 'rule_id': 'rule3'},
+            {'severity': 'moderate', 'rule_id': 'rule4'},
+            {'severity': 'minor', 'rule_id': 'rule5'}
+        ]
+        
+        stats = service.get_violation_statistics(violations)
+        
+        assert stats['total'] == 5
+        assert stats['by_severity']['critical'] == 1
+        assert stats['by_severity']['serious'] == 2
+        assert stats['by_severity']['moderate'] == 1
+        assert stats['by_severity']['minor'] == 1
+        
+        # Should have rule frequency
+        assert 'by_rule' in stats
+        assert len(stats['by_rule']) == 5
+    
+    def test_generate_recommendations(self, reporting_service):
+        """Test generating accessibility recommendations"""
+        service, _ = reporting_service
+        
+        violation_stats = {
+            'by_severity': {'critical': 2, 'serious': 5},
+            'by_rule': {'color_contrast': 3, 'alt_text': 2}
+        }
+        
+        average_score = 70
+        
+        recommendations = service.generate_recommendations(violation_stats, average_score)
+        
+        assert len(recommendations) > 0
+        
+        # Should prioritize critical and serious violations
+        high_priority = [r for r in recommendations if r['priority'] == 'high']
+        assert len(high_priority) > 0
+        
+        # Should include specific rule recommendations
+        color_contrast_rec = next(
+            (r for r in recommendations if 'contrast' in r['description'].lower()),
+            None
+        )
+        assert color_contrast_rec is not None
+
+if __name__ == '__main__':
+    pytest.main([__file__])

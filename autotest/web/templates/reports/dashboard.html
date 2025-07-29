@@ -1,0 +1,300 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Reports Dashboard - AutoTest{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="page-header">
+        <h1>Reports Dashboard</h1>
+        <p>Generate and manage accessibility testing reports for your projects.</p>
+        <div class="header-actions">
+            <a href="{{ url_for('reports.generate_report') }}" class="btn btn-primary">
+                <i class="icon-plus"></i> Generate New Report
+            </a>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>Total Reports</h3>
+            <span class="stat-number">{{ recent_reports|length if recent_reports else 0 }}</span>
+        </div>
+        <div class="stat-card">
+            <h3>Report Templates</h3>
+            <span class="stat-number">{{ templates|length if templates else 3 }}</span>
+        </div>
+        <div class="stat-card">
+            <h3>This Month</h3>
+            <span class="stat-number">0</span>
+        </div>
+        <div class="stat-card">
+            <h3>Pending</h3>
+            <span class="stat-number">0</span>
+        </div>
+    </div>
+
+    <!-- Report Templates -->
+    <section class="dashboard-section">
+        <h2>Available Report Templates</h2>
+        <div class="templates-grid">
+            <div class="template-card">
+                <h3>Executive Summary</h3>
+                <p>High-level accessibility overview for stakeholders and decision makers.</p>
+                <div class="template-features">
+                    <span class="feature">Compliance scores</span>
+                    <span class="feature">Risk assessment</span>
+                    <span class="feature">Recommendations</span>
+                </div>
+                <a href="{{ url_for('reports.generate_report') }}?template=executive" class="btn btn-outline">Generate Report</a>
+            </div>
+            
+            <div class="template-card">
+                <h3>Technical Report</h3>
+                <p>Detailed technical analysis for developers and accessibility specialists.</p>
+                <div class="template-features">
+                    <span class="feature">Violation details</span>
+                    <span class="feature">Code examples</span>
+                    <span class="feature">Fix guidance</span>
+                </div>
+                <a href="{{ url_for('reports.generate_report') }}?template=technical" class="btn btn-outline">Generate Report</a>
+            </div>
+            
+            <div class="template-card">
+                <h3>Progress Report</h3>
+                <p>Track accessibility improvements over time with trend analysis.</p>
+                <div class="template-features">
+                    <span class="feature">Historical data</span>
+                    <span class="feature">Trend charts</span>
+                    <span class="feature">Progress metrics</span>
+                </div>
+                <a href="{{ url_for('reports.generate_report') }}?template=progress" class="btn btn-outline">Generate Report</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Recent Reports -->
+    <section class="dashboard-section">
+        <h2>Recent Reports</h2>
+        {% if recent_reports and recent_reports|length > 0 %}
+        <div class="reports-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Report Name</th>
+                        <th>Project</th>
+                        <th>Type</th>
+                        <th>Generated</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in recent_reports %}
+                    <tr>
+                        <td>{{ report.name }}</td>
+                        <td>{{ report.project_name }}</td>
+                        <td>{{ report.type|title }}</td>
+                        <td>{{ report.created_date.strftime('%Y-%m-%d %H:%M') if report.created_date else 'N/A' }}</td>
+                        <td><span class="status {{ report.status }}">{{ report.status|title }}</span></td>
+                        <td>
+                            <a href="{{ url_for('reports.view_report', report_id=report.id) }}" class="btn btn-sm">View</a>
+                            <a href="{{ url_for('reports.download_report', report_id=report.id) }}" class="btn btn-sm btn-outline">Download</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <h3>No reports generated yet</h3>
+            <p>Start by generating your first accessibility report.</p>
+            <a href="{{ url_for('reports.generate_report') }}" class="btn btn-primary">Generate Report</a>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- Export Options -->
+    <section class="dashboard-section">
+        <h2>Export Options</h2>
+        <div class="export-options">
+            <div class="export-option">
+                <h3>PDF Reports</h3>
+                <p>Professional reports suitable for sharing with stakeholders.</p>
+            </div>
+            <div class="export-option">
+                <h3>CSV Data</h3>
+                <p>Raw data export for analysis and integration with other tools.</p>
+            </div>
+            <div class="export-option">
+                <h3>JSON API</h3>
+                <p>Programmatic access to report data via RESTful API.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+<style>
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.stat-card h3 {
+    margin: 0 0 0.5rem 0;
+    color: #666;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #2c5aa0;
+}
+
+.dashboard-section {
+    background: white;
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.dashboard-section h2 {
+    margin: 0 0 1.5rem 0;
+    color: #2c5aa0;
+    border-bottom: 2px solid #e1e8ed;
+    padding-bottom: 0.5rem;
+}
+
+.templates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.template-card {
+    border: 2px solid #e1e8ed;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.template-card h3 {
+    color: #2c5aa0;
+    margin-bottom: 1rem;
+}
+
+.template-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin: 1rem 0;
+}
+
+.feature {
+    background: #f8f9fa;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    color: #495057;
+}
+
+.reports-table {
+    overflow-x: auto;
+}
+
+.reports-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.reports-table th,
+.reports-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid #e1e8ed;
+}
+
+.reports-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+}
+
+.status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.status.completed {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status.pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status.failed {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #666;
+}
+
+.export-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+}
+
+.export-option {
+    text-align: center;
+    padding: 1.5rem;
+    border: 2px solid #e1e8ed;
+    border-radius: 8px;
+}
+
+.export-option h3 {
+    color: #2c5aa0;
+    margin-bottom: 0.5rem;
+}
+
+.btn.btn-sm {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.btn.btn-outline {
+    background: transparent;
+    border: 2px solid #2c5aa0;
+    color: #2c5aa0;
+}
+
+.btn.btn-outline:hover {
+    background: #2c5aa0;
+    color: white;
+}
+</style>
+{% endblock %}

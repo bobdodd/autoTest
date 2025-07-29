@@ -17,7 +17,10 @@ class Page:
     website_id: str
     url: str
     title: str = ""
+    description: str = ""
     discovered_method: str = "manual"  # "manual" or "scraping"
+    ignored: bool = False  # Mark page to skip testing
+    issues: Optional[List[Dict[str, Any]]] = None  # Accessibility test results
     created_date: Optional[datetime.datetime] = None
     last_tested: Optional[datetime.datetime] = None
     
@@ -28,7 +31,10 @@ class Page:
             'website_id': self.website_id,
             'url': self.url,
             'title': self.title,
+            'description': self.description,
             'discovered_method': self.discovered_method,
+            'ignored': self.ignored,
+            'issues': self.issues or [],
             'created_date': self.created_date,
             'last_tested': self.last_tested
         }
@@ -36,13 +42,21 @@ class Page:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Page':
         """Create Page instance from dictionary"""
+        # Ensure _id is converted to string if it exists
+        page_id = data.get('_id')
+        if page_id is not None:
+            page_id = str(page_id)
+            
         return cls(
-            page_id=data.get('_id'),
+            page_id=page_id,
             project_id=data['project_id'],
             website_id=data['website_id'],
             url=data['url'],
             title=data.get('title', ''),
+            description=data.get('description', ''),
             discovered_method=data.get('discovered_method', 'manual'),
+            ignored=data.get('ignored', False),
+            issues=data.get('issues', []),
             created_date=data.get('created_date'),
             last_tested=data.get('last_tested')
         )
@@ -55,7 +69,7 @@ class PageRepository(BaseRepository):
         super().__init__(db_connection, 'pages')
     
     def create_page(self, project_id: str, website_id: str, url: str, 
-                   title: str = "", discovered_method: str = "manual") -> str:
+                   title: str = "", description: str = "", discovered_method: str = "manual") -> str:
         """
         Create a new page
         
@@ -64,6 +78,7 @@ class PageRepository(BaseRepository):
             website_id: Website ID
             url: Page URL
             title: Page title
+            description: Page description
             discovered_method: How the page was discovered
         
         Returns:
@@ -75,6 +90,7 @@ class PageRepository(BaseRepository):
             website_id=website_id,
             url=url,
             title=title,
+            description=description,
             discovered_method=discovered_method
         )
         
@@ -95,8 +111,31 @@ class PageRepository(BaseRepository):
             return Page.from_dict(data)
         return None
     
+    def toggle_ignored(self, page_id: str) -> bool:
+        """
+        Toggle the ignored status of a page
+        
+        Args:
+            page_id: Page ID
+        
+        Returns:
+            True if update successful, False otherwise
+        """
+        try:
+            page = self.get_page(page_id)
+            if not page:
+                return False
+            
+            # Toggle the ignored status
+            new_ignored_status = not page.ignored
+            return self.update(page_id, {'ignored': new_ignored_status})
+            
+        except Exception as e:
+            self.logger.error(f"Error toggling ignored status for page {page_id}: {e}")
+            return False
+    
     def update_page(self, page_id: str, title: Optional[str] = None, 
-                   url: Optional[str] = None) -> bool:
+                   url: Optional[str] = None, description: Optional[str] = None) -> bool:
         """
         Update page information
         
@@ -104,6 +143,7 @@ class PageRepository(BaseRepository):
             page_id: Page ID
             title: New page title (optional)
             url: New page URL (optional)
+            description: New page description (optional)
         
         Returns:
             True if update successful, False otherwise
@@ -115,6 +155,9 @@ class PageRepository(BaseRepository):
         
         if url is not None:
             update_data['url'] = url
+            
+        if description is not None:
+            update_data['description'] = description
         
         if update_data:
             return self.update(page_id, update_data)

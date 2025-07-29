@@ -116,14 +116,15 @@
                                 Maximum Crawl Depth
                             </label>
                             <select id="max_depth" name="max_depth" class="form-select" aria-describedby="max_depth-help">
+                                <option value="unlimited" {{ 'selected' if (not form_data) or form_data.max_depth == 'unlimited' else '' }}>Unlimited (recommended)</option>
                                 <option value="1" {{ 'selected' if form_data and form_data.max_depth == '1' else '' }}>1 level (homepage only)</option>
                                 <option value="2" {{ 'selected' if form_data and form_data.max_depth == '2' else '' }}>2 levels</option>
-                                <option value="3" {{ 'selected' if (not form_data) or form_data.max_depth == '3' else '' }}>3 levels (recommended)</option>
+                                <option value="3" {{ 'selected' if form_data and form_data.max_depth == '3' else '' }}>3 levels</option>
                                 <option value="4" {{ 'selected' if form_data and form_data.max_depth == '4' else '' }}>4 levels</option>
-                                <option value="5" {{ 'selected' if form_data and form_data.max_depth == '5' else '' }}>5 levels (deep crawl)</option>
+                                <option value="5" {{ 'selected' if form_data and form_data.max_depth == '5' else '' }}>5 levels</option>
                             </select>
                             <div id="max_depth-help" class="form-help">
-                                How many levels deep to follow links from the base URL.
+                                How many levels deep to follow links from the base URL. For accessibility testing, unlimited is recommended to test all pages.
                             </div>
                         </div>
                         
@@ -215,8 +216,9 @@
             <div class="help-section">
                 <h3 class="help-section-title">Crawl Depth</h3>
                 <ul class="help-list">
+                    <li><strong>Unlimited:</strong> Follow all links to discover every page (recommended for accessibility testing)</li>
                     <li><strong>1 level:</strong> Only the homepage</li>
-                    <li><strong>2-3 levels:</strong> Most main pages (recommended)</li>
+                    <li><strong>2-3 levels:</strong> Most main pages</li>
                     <li><strong>4+ levels:</strong> Deep site exploration</li>
                 </ul>
             </div>
@@ -224,7 +226,8 @@
             <div class="help-section">
                 <h3 class="help-section-title">Best Practices</h3>
                 <ul class="help-list">
-                    <li>Start with fewer pages for initial testing</li>
+                    <li>Use unlimited depth for comprehensive accessibility testing</li>
+                    <li>Set page limits based on site size and testing needs</li>
                     <li>Use descriptive names for easy identification</li>
                     <li>Keep robots.txt enabled unless necessary</li>
                     <li>Be cautious with external link following</li>

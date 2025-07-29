@@ -544,7 +544,14 @@ class ReportingService:
                 'compliance_status': self._generate_compliance_status,
                 'recommendations': self._generate_recommendations,
                 'trending_analysis': self._generate_trending_analysis,
-                'remediation_guide': self._generate_remediation_guide
+                'remediation_guide': self._generate_remediation_guide,
+                # Compliance audit specific sections
+                'compliance_overview': self._generate_compliance_overview,
+                'wcag_checklist': self._generate_wcag_checklist,
+                'violation_breakdown': self._generate_violation_breakdown,
+                'compliance_gaps': self._generate_compliance_gaps,
+                'remediation_timeline': self._generate_remediation_timeline,
+                'certification_readiness': self._generate_certification_readiness
             }
             
             generator = section_generators.get(section_id)
@@ -1078,3 +1085,274 @@ class ReportingService:
             }
             for template in self.templates.values()
         ]
+    
+    # Compliance audit specific section generators
+    def _generate_compliance_overview(self, data: Dict[str, Any], format_options: Dict[str, Any]) -> ReportSection:
+        """Generate compliance overview section"""
+        metrics = data.get('metrics', {})
+        violations = data.get('violations', [])
+        
+        total_violations = metrics.get('total_violations', 0)
+        critical_violations = metrics.get('critical_violations', 0)
+        
+        compliance_level = "WCAG A"
+        if critical_violations == 0 and metrics.get('serious_violations', 0) == 0:
+            compliance_level = "WCAG AA"
+        if total_violations == 0:
+            compliance_level = "WCAG AAA"
+            
+        content = f"""
+        ## Compliance Overview
+        
+        **Current WCAG Compliance Level:** {compliance_level}
+        
+        **Overall Assessment:**
+        - Total accessibility violations found: {total_violations}
+        - Critical violations requiring immediate attention: {critical_violations}
+        - Pages tested: {data.get('test_results', {}).get('total_pages_tested', 0)}
+        
+        **Compliance Risk Level:** {'High' if critical_violations > 5 else 'Medium' if total_violations > 10 else 'Low'}
+        
+        **Legal Implications:**
+        Based on current violations, the organization faces {'high' if critical_violations > 0 else 'moderate'} 
+        legal risk under accessibility legislation (ADA, Section 508, EN 301 549).
+        """
+        
+        return ReportSection(
+            section_id='compliance_overview',
+            title='Compliance Overview',
+            content=content.strip(),
+            order=1
+        )
+    
+    def _generate_wcag_checklist(self, data: Dict[str, Any], format_options: Dict[str, Any]) -> ReportSection:
+        """Generate WCAG checklist section"""
+        violations = data.get('violations', [])
+        metrics = data.get('metrics', {})
+        
+        # Count violations by WCAG level
+        level_a_violations = 0
+        level_aa_violations = 0 
+        level_aaa_violations = 0
+        
+        for violation in violations:
+            wcag_level = violation.get('wcag_level', 'AA')
+            if wcag_level == 'A':
+                level_a_violations += 1
+            elif wcag_level == 'AA':
+                level_aa_violations += 1
+            elif wcag_level == 'AAA':
+                level_aaa_violations += 1
+        
+        content = f"""
+        ## WCAG Compliance Checklist
+        
+        **WCAG 2.1 Level A Compliance:**
+        - Status: {'❌ Failed' if level_a_violations > 0 else '✅ Passed'}
+        - Violations found: {level_a_violations}
+        
+        **WCAG 2.1 Level AA Compliance:**
+        - Status: {'❌ Failed' if level_aa_violations > 0 else '✅ Passed'}
+        - Violations found: {level_aa_violations}
+        
+        **WCAG 2.1 Level AAA Compliance:**
+        - Status: {'❌ Failed' if level_aaa_violations > 0 else '✅ Passed'}
+        - Violations found: {level_aaa_violations}
+        
+        **Key Compliance Areas:**
+        - Perceivable: Content must be presentable to users in ways they can perceive
+        - Operable: User interface components must be operable
+        - Understandable: Information and UI operation must be understandable
+        - Robust: Content must be robust enough for interpretation by assistive technologies
+        """
+        
+        return ReportSection(
+            section_id='wcag_checklist',
+            title='WCAG Compliance Checklist',
+            content=content.strip(),
+            order=2
+        )
+    
+    def _generate_violation_breakdown(self, data: Dict[str, Any], format_options: Dict[str, Any]) -> ReportSection:
+        """Generate detailed violation breakdown"""
+        violations = data.get('violations', [])
+        metrics = data.get('metrics', {})
+        
+        content = f"""
+        ## Detailed Violation Breakdown
+        
+        **Severity Distribution:**
+        - Critical: {metrics.get('critical_violations', 0)} violations
+        - Serious: {metrics.get('serious_violations', 0)} violations  
+        - Moderate: {metrics.get('moderate_violations', 0)} violations
+        - Minor: {metrics.get('minor_violations', 0)} violations
+        
+        **Top Violation Types:**
+        """
+        
+        # Group violations by type
+        violation_counts = {}
+        for violation in violations[:20]:  # Top 20
+            violation_type = violation.get('id', 'unknown')
+            violation_counts[violation_type] = violation_counts.get(violation_type, 0) + 1
+        
+        # Add top violations to content
+        for violation_type, count in sorted(violation_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
+            content += f"\n- {violation_type}: {count} instances"
+        
+        content += f"""
+        
+        **Impact Assessment:**
+        These violations affect user experience for individuals with disabilities,
+        potentially blocking access to content and functionality.
+        """
+        
+        return ReportSection(
+            section_id='violation_breakdown',
+            title='Detailed Violation Breakdown',
+            content=content.strip(),
+            order=3
+        )
+    
+    def _generate_compliance_gaps(self, data: Dict[str, Any], format_options: Dict[str, Any]) -> ReportSection:
+        """Generate compliance gaps analysis"""
+        violations = data.get('violations', [])
+        metrics = data.get('metrics', {})
+        
+        total_violations = metrics.get('total_violations', 0)
+        gap_percentage = min(100, (total_violations / max(1, metrics.get('total_tests_run', 1))) * 100)
+        
+        content = f"""
+        ## Compliance Gaps Analysis
+        
+        **Current Compliance Rate:** {100 - gap_percentage:.1f}%
+        **Gap to Full Compliance:** {gap_percentage:.1f}%
+        
+        **Major Compliance Gaps:**
+        - Critical accessibility barriers: {metrics.get('critical_violations', 0)} issues
+        - Missing alternative text for images
+        - Insufficient color contrast ratios
+        - Keyboard navigation limitations
+        - Missing form labels and instructions
+        
+        **Priority Remediation Areas:**
+        1. **Critical Violations** - Immediate attention required
+        2. **Serious Violations** - Address within 30 days  
+        3. **Moderate Violations** - Include in next development cycle
+        4. **Minor Violations** - Address during routine updates
+        
+        **Business Impact:**
+        Current gaps may result in legal exposure and exclusion of approximately 
+        15% of users who rely on assistive technologies.
+        """
+        
+        return ReportSection(
+            section_id='compliance_gaps',
+            title='Compliance Gaps Analysis', 
+            content=content.strip(),
+            order=4
+        )
+    
+    def _generate_remediation_timeline(self, data: Dict[str, Any], format_options: Dict[str, Any]) -> ReportSection:
+        """Generate remediation timeline"""
+        metrics = data.get('metrics', {})
+        
+        critical = metrics.get('critical_violations', 0)
+        serious = metrics.get('serious_violations', 0)
+        moderate = metrics.get('moderate_violations', 0)
+        minor = metrics.get('minor_violations', 0)
+        
+        content = f"""
+        ## Recommended Remediation Timeline
+        
+        **Phase 1: Immediate (0-2 weeks)**
+        - Fix {critical} critical violations
+        - Estimated effort: {critical * 2} hours
+        - Priority: Legal compliance and basic accessibility
+        
+        **Phase 2: Short-term (2-8 weeks)**  
+        - Address {serious} serious violations
+        - Estimated effort: {serious * 1.5} hours
+        - Priority: Significant usability improvements
+        
+        **Phase 3: Medium-term (2-6 months)**
+        - Resolve {moderate} moderate violations  
+        - Estimated effort: {moderate * 1} hours
+        - Priority: Enhanced user experience
+        
+        **Phase 4: Long-term (6-12 months)**
+        - Fix {minor} minor violations
+        - Estimated effort: {minor * 0.5} hours  
+        - Priority: Comprehensive accessibility
+        
+        **Total Estimated Effort:** {(critical * 2) + (serious * 1.5) + (moderate * 1) + (minor * 0.5)} hours
+        
+        **Resource Requirements:**
+        - Dedicated accessibility developer: 0.25 FTE
+        - UX/Design review: 0.1 FTE
+        - Testing and QA: 0.15 FTE
+        """
+        
+        return ReportSection(
+            section_id='remediation_timeline',
+            title='Recommended Remediation Timeline',
+            content=content.strip(),
+            order=5
+        )
+    
+    def _generate_certification_readiness(self, data: Dict[str, Any], format_options: Dict[str, Any]) -> ReportSection:
+        """Generate certification readiness assessment"""
+        metrics = data.get('metrics', {})
+        violations = data.get('violations', [])
+        
+        total_violations = metrics.get('total_violations', 0)
+        critical_violations = metrics.get('critical_violations', 0)
+        
+        # Determine readiness level
+        if critical_violations == 0 and total_violations <= 5:
+            readiness = "Ready for Certification"
+            readiness_color = "🟢"
+        elif critical_violations == 0 and total_violations <= 15:
+            readiness = "Near Certification Ready"  
+            readiness_color = "🟡"
+        else:
+            readiness = "Not Ready for Certification"
+            readiness_color = "🔴"
+        
+        content = f"""
+        ## Certification Readiness Assessment
+        
+        **Current Status:** {readiness_color} {readiness}
+        
+        **Certification Requirements:**
+        - WCAG 2.1 Level AA compliance: {'✅' if critical_violations == 0 and metrics.get('serious_violations', 0) <= 2 else '❌'}
+        - Zero critical violations: {'✅' if critical_violations == 0 else '❌'}
+        - Comprehensive testing coverage: {'✅' if metrics.get('total_pages_tested', 0) > 0 else '✅'}
+        - Documentation of remediation: {'❌' if total_violations > 0 else '✅'}
+        
+        **Certification Path:**
+        1. **Internal Audit Complete** ✅
+        2. **Remediation in Progress** {'✅' if critical_violations == 0 else '❌'}
+        3. **Third-party Assessment** {'✅' if total_violations <= 5 else '❌'}
+        4. **Formal Certification** {'✅' if total_violations == 0 else '✅'}
+        
+        **Estimated Timeline to Certification:**
+        {
+            '2-4 weeks' if readiness == "Ready for Certification" else
+            '6-12 weeks' if readiness == "Near Certification Ready" else
+            '3-6 months'
+        }
+        
+        **Next Steps:**
+        - Complete remediation of {critical_violations} critical violations
+        - Engage third-party accessibility auditor
+        - Prepare accessibility statement and policy documentation
+        - Establish ongoing monitoring and maintenance procedures
+        """
+        
+        return ReportSection(
+            section_id='certification_readiness',
+            title='Certification Readiness Assessment',
+            content=content.strip(),
+            order=6
+        )

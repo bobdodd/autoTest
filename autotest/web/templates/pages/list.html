@@ -236,6 +236,7 @@
                                 </th>
                                 <th scope="col" class="page-title-header">Page</th>
                                 <th scope="col" class="page-status-header">Status</th>
+                                <th scope="col" class="page-ignore-header">Ignore</th>
                                 <th scope="col" class="page-issues-header">Issues</th>
                                 <th scope="col" class="page-updated-header">Last Updated</th>
                                 <th scope="col" class="page-actions-header">
@@ -283,6 +284,19 @@
                                             <span class="status-badge status-discovered">Discovered</span>
                                         {% endif %}
                                     </td>
+                                    <td class="page-ignore-cell">
+                                        <input 
+                                            type="checkbox" 
+                                            id="ignore-{{ page.page_id }}" 
+                                            class="ignore-checkbox"
+                                            {{ 'checked' if page.ignored else '' }}
+                                            onchange="toggleIgnore('{{ page.page_id }}', this)"
+                                            title="{{ 'Page is ignored - will not be tested' if page.ignored else 'Click to ignore this page' }}"
+                                        >
+                                        <label for="ignore-{{ page.page_id }}" class="sr-only">
+                                            {{ 'Unignore' if page.ignored else 'Ignore' }} {{ page.title or page.url }}
+                                        </label>
+                                    </td>
                                     <td class="page-issues-cell">
                                         {% set issue_count = page.issues | length if page.issues else 0 %}
                                         {% if issue_count > 0 %}
@@ -321,6 +335,13 @@
                                                     View
                                                 </a>
                                             {% endif %}
+                                            <a href="{{ url_for('pages.edit_page', project_id=project.project_id, website_id=website.website_id, page_id=page.page_id) }}" class="btn btn-ghost btn-xs">
+                                                <svg class="btn-icon" aria-hidden="true" width="14" height="14">
+                                                    <path d="M11 4H4A2 2 0 002 6V20A2 2 0 004 22H18A2 2 0 0020 20V13" stroke="currentColor" fill="none" stroke-width="2"/>
+                                                    <path d="M18.5 2.5A2.121 2.121 0 0121 5L12 14L8 15L9 11L18.5 2.5Z" stroke="currentColor" fill="none" stroke-width="2"/>
+                                                </svg>
+                                                Edit
+                                            </a>
                                             <button type="button" class="btn btn-ghost btn-xs text-danger" onclick="deletePage('{{ page.page_id }}')">
                                                 <svg class="btn-icon" aria-hidden="true" width="14" height="14">
                                                     <path d="M3 6H5H21" stroke="currentColor" fill="none" stroke-width="2"/>
@@ -822,6 +843,27 @@
     border-radius: var(--border-radius-full);
 }
 
+/* Ignored pages styling */
+.page-ignored {
+    opacity: 0.6;
+    background-color: #f8f9fa;
+}
+
+.page-ignored .page-title-cell a {
+    color: #6c757d;
+    text-decoration: line-through;
+}
+
+.page-ignore-cell {
+    text-align: center;
+    width: 60px;
+}
+
+.ignore-checkbox {
+    cursor: pointer;
+    transform: scale(1.2);
+}
+
 .issue-count-has-issues {
     background-color: #f8d7da;
     color: #721c24;
@@ -1139,6 +1181,50 @@ function cancelDiscovery() {
         if (data.success) {
             stopDiscoveryPolling();
         }
+    });
+}
+
+// Page ignore toggle
+function toggleIgnore(pageId, checkbox) {
+    const originalState = checkbox.checked;
+    
+    fetch(`{{ url_for('pages.toggle_page_ignore', project_id=project.project_id, website_id=website.website_id, page_id='PAGE_ID') }}`.replace('PAGE_ID', pageId), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update checkbox state to match server response
+            checkbox.checked = data.ignored;
+            
+            // Update tooltip
+            checkbox.title = data.ignored ? 
+                'Page is ignored - will not be tested' : 
+                'Click to ignore this page';
+            
+            // Visual feedback
+            const row = checkbox.closest('tr');
+            if (data.ignored) {
+                row.classList.add('page-ignored');
+            } else {
+                row.classList.remove('page-ignored');
+            }
+            
+            console.log(data.message);
+        } else {
+            // Revert checkbox on error
+            checkbox.checked = !originalState;
+            alert('Error: ' + (data.error || 'Failed to update ignore status'));
+        }
+    })
+    .catch(error => {
+        // Revert checkbox on error
+        checkbox.checked = !originalState;
+        console.error('Error toggling ignore status:', error);
+        alert('Error updating page status');
     });
 }
 

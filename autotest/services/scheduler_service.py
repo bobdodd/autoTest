@@ -93,14 +93,14 @@ class SchedulerService:
         """Initialize database collections for scheduled tests"""
         try:
             # Create indexes for efficient querying
-            self.db_connection.db.scheduled_tests.create_index("schedule_id", unique=True)
-            self.db_connection.db.scheduled_tests.create_index("next_run")
-            self.db_connection.db.scheduled_tests.create_index("status")
-            self.db_connection.db.scheduled_tests.create_index("project_id")
+            self.db_connection.database.scheduled_tests.create_index("schedule_id", unique=True)
+            self.db_connection.database.scheduled_tests.create_index("next_run")
+            self.db_connection.database.scheduled_tests.create_index("status")
+            self.db_connection.database.scheduled_tests.create_index("project_id")
             
             # Schedule execution history
-            self.db_connection.db.schedule_executions.create_index("schedule_id")
-            self.db_connection.db.schedule_executions.create_index("execution_time")
+            self.db_connection.database.schedule_executions.create_index("schedule_id")
+            self.db_connection.database.schedule_executions.create_index("execution_time")
             
             self.logger.info("Scheduler database collections initialized")
             
@@ -144,7 +144,7 @@ class SchedulerService:
             scheduled_test.next_run = self._calculate_next_run(scheduled_test)
             
             # Store in database
-            self.db_connection.db.scheduled_tests.insert_one(asdict(scheduled_test))
+            self.db_connection.database.scheduled_tests.insert_one(asdict(scheduled_test))
             
             self.logger.info(f"Created scheduled test: {schedule_id} - {scheduled_test.name}")
             return schedule_id
@@ -199,7 +199,7 @@ class SchedulerService:
             update_fields['updated_at'] = datetime.now()
             
             # Update in database
-            result = self.db_connection.db.scheduled_tests.update_one(
+            result = self.db_connection.database.scheduled_tests.update_one(
                 {'schedule_id': schedule_id},
                 {'$set': update_fields}
             )
@@ -225,13 +225,13 @@ class SchedulerService:
             True if deletion successful, False otherwise
         """
         try:
-            result = self.db_connection.db.scheduled_tests.delete_one(
+            result = self.db_connection.database.scheduled_tests.delete_one(
                 {'schedule_id': schedule_id}
             )
             
             if result.deleted_count > 0:
                 # Also delete execution history
-                self.db_connection.db.schedule_executions.delete_many(
+                self.db_connection.database.schedule_executions.delete_many(
                     {'schedule_id': schedule_id}
                 )
                 
@@ -247,7 +247,7 @@ class SchedulerService:
     def get_schedule(self, schedule_id: str) -> Optional[Dict[str, Any]]:
         """Get a specific scheduled test"""
         try:
-            schedule = self.db_connection.db.scheduled_tests.find_one(
+            schedule = self.db_connection.database.scheduled_tests.find_one(
                 {'schedule_id': schedule_id}
             )
             
@@ -284,7 +284,7 @@ class SchedulerService:
                 query['status'] = status
             
             schedules = list(
-                self.db_connection.db.scheduled_tests
+                self.db_connection.database.scheduled_tests
                 .find(query)
                 .sort('created_at', -1)
                 .limit(limit)
@@ -363,7 +363,7 @@ class SchedulerService:
             
             # Find schedules that need to run
             due_schedules = list(
-                self.db_connection.db.scheduled_tests.find({
+                self.db_connection.database.scheduled_tests.find({
                     'status': ScheduleStatus.ACTIVE.value,
                     'next_run': {'$lte': now}
                 })
@@ -380,7 +380,7 @@ class SchedulerService:
                     schedule.next_run = self._calculate_next_run(schedule)
                     
                     # Update in database
-                    self.db_connection.db.scheduled_tests.update_one(
+                    self.db_connection.database.scheduled_tests.update_one(
                         {'schedule_id': schedule.schedule_id},
                         {
                             '$set': {
@@ -400,7 +400,7 @@ class SchedulerService:
                     self.logger.error(f"Error executing schedule {schedule_data.get('schedule_id')}: {e}")
                     
                     # Mark schedule as failed
-                    self.db_connection.db.scheduled_tests.update_one(
+                    self.db_connection.database.scheduled_tests.update_one(
                         {'schedule_id': schedule_data.get('schedule_id')},
                         {
                             '$set': {
@@ -507,7 +507,7 @@ class SchedulerService:
         """Store execution result in database"""
         try:
             execution_result['schedule_id'] = schedule_id
-            self.db_connection.db.schedule_executions.insert_one(execution_result)
+            self.db_connection.database.schedule_executions.insert_one(execution_result)
             
         except Exception as e:
             self.logger.error(f"Error storing execution result: {e}")
@@ -541,7 +541,7 @@ class SchedulerService:
             # Don't schedule past the end date
             if schedule.end_date and next_run > schedule.end_date:
                 # Mark as completed instead
-                self.db_connection.db.scheduled_tests.update_one(
+                self.db_connection.database.scheduled_tests.update_one(
                     {'schedule_id': schedule.schedule_id},
                     {'$set': {'status': ScheduleStatus.COMPLETED.value}}
                 )
@@ -586,7 +586,7 @@ class SchedulerService:
         """Get execution history for a schedule"""
         try:
             executions = list(
-                self.db_connection.db.schedule_executions
+                self.db_connection.database.schedule_executions
                 .find({'schedule_id': schedule_id})
                 .sort('execution_time', -1)
                 .limit(limit)
@@ -605,16 +605,16 @@ class SchedulerService:
     def get_scheduler_statistics(self) -> Dict[str, Any]:
         """Get scheduler statistics"""
         try:
-            total_schedules = self.db_connection.db.scheduled_tests.count_documents({})
-            active_schedules = self.db_connection.db.scheduled_tests.count_documents(
+            total_schedules = self.db_connection.database.scheduled_tests.count_documents({})
+            active_schedules = self.db_connection.database.scheduled_tests.count_documents(
                 {'status': ScheduleStatus.ACTIVE.value}
             )
-            paused_schedules = self.db_connection.db.scheduled_tests.count_documents(
+            paused_schedules = self.db_connection.database.scheduled_tests.count_documents(
                 {'status': ScheduleStatus.PAUSED.value}
             )
             
             # Recent executions
-            recent_executions = self.db_connection.db.schedule_executions.count_documents({
+            recent_executions = self.db_connection.database.schedule_executions.count_documents({
                 'execution_time': {'$gte': datetime.now() - timedelta(hours=24)}
             })
             

@@ -14,8 +14,8 @@ testing_bp = Blueprint('testing', __name__, url_prefix='/testing')
 
 # Initialize services
 testing_service = None  # Will be initialized by app factory
-project_manager = ProjectManager()
-website_manager = WebsiteManager()
+project_manager = None  # ProjectManager()
+website_manager = None  # WebsiteManager()
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +24,12 @@ def init_testing_service(config, db_connection):
     """Initialize testing service (called by app factory)"""
     global testing_service
     testing_service = TestingService(config, db_connection)
+
+
+@testing_bp.route('/rules')
+def rules():
+    """Display accessibility testing rules and configuration"""
+    return render_template('testing/rules.html')
 
 
 @testing_bp.route('/dashboard')

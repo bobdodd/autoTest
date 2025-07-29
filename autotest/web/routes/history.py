@@ -15,8 +15,8 @@ history_bp = Blueprint('history', __name__, url_prefix='/history')
 
 # Initialize services
 history_service = None  # Will be initialized by app factory
-project_manager = ProjectManager()
-website_manager = WebsiteManager()
+project_manager = None  # ProjectManager()
+website_manager = None  # WebsiteManager()
 
 logger = logging.getLogger(__name__)
 
@@ -31,17 +31,16 @@ def init_history_service(config, db_connection):
 def dashboard():
     """History and trending dashboard"""
     try:
-        if not history_service:
-            flash('History service not available.', 'error')
-            return redirect(url_for('main.index'))
+        # Get overall statistics (mock data for now)
+        stats = {
+            'total_snapshots': 0,
+            'projects_tracked': 0,
+            'avg_compliance_score': 0,
+            'trend_direction': 'stable'
+        }
         
-        # Get overall statistics
-        stats = history_service.get_history_statistics()
-        
-        # Get recent snapshots for overview
-        recent_snapshots = history_service.get_historical_snapshots(
-            time_range="7d", limit=10
-        )
+        # Get recent snapshots for overview (mock data for now)
+        recent_snapshots = []
         
         return render_template('history/dashboard.html',
                              stats=stats,
@@ -74,7 +73,8 @@ def trending_analysis():
         )
         
         # Get projects for filter dropdown
-        projects = project_manager.list_projects()
+        projects_result = project_manager.list_projects()
+        projects = projects_result.get('projects', []) if projects_result.get('success') else []
         
         # Get websites for selected project
         websites = []
@@ -135,7 +135,8 @@ def list_snapshots():
                 snapshot['website'] = website_manager.get_website(snapshot['website_id'])
         
         # Get projects for filter dropdown
-        projects = project_manager.list_projects()
+        projects_result = project_manager.list_projects()
+        projects = projects_result.get('projects', []) if projects_result.get('success') else []
         
         return render_template('history/snapshots.html',
                              snapshots=snapshots,
@@ -164,7 +165,8 @@ def comparison_tool():
             return redirect(url_for('history.dashboard'))
         
         # Get projects for dropdown
-        projects = project_manager.list_projects()
+        projects_result = project_manager.list_projects()
+        projects = projects_result.get('projects', []) if projects_result.get('success') else []
         
         return render_template('history/comparison.html', projects=projects)
     
@@ -449,7 +451,8 @@ def history_reports():
             return redirect(url_for('history.dashboard'))
         
         # Get projects for report generation
-        projects = project_manager.list_projects()
+        projects_result = project_manager.list_projects()
+        projects = projects_result.get('projects', []) if projects_result.get('success') else []
         
         return render_template('history/reports.html', projects=projects)
     

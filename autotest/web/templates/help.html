@@ -1,0 +1,281 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Help - AutoTest{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="page-header">
+        <h1>AutoTest Help & Documentation</h1>
+        <p>Learn how to use AutoTest for comprehensive web accessibility testing.</p>
+    </div>
+
+    <div class="help-container">
+        <!-- Quick Start Section -->
+        <section class="help-section">
+            <h2>Quick Start Guide</h2>
+            <div class="steps">
+                <div class="step">
+                    <h3>1. Create a Project</h3>
+                    <p>Start by creating a new project to organize your accessibility testing efforts.</p>
+                    <a href="{{ url_for('projects.create_project') }}" class="btn btn-outline">Create Project</a>
+                </div>
+                <div class="step">
+                    <h3>2. Add Websites</h3>
+                    <p>Add one or more websites to your project for testing.</p>
+                </div>
+                <div class="step">
+                    <h3>3. Run Tests</h3>
+                    <p>Execute accessibility tests on your pages and review the results.</p>
+                </div>
+                <div class="step">
+                    <h3>4. Generate Reports</h3>
+                    <p>Create comprehensive reports to track progress and compliance.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="help-section">
+            <h2>Key Features</h2>
+            <div class="features-grid">
+                <div class="feature">
+                    <h3>WCAG 2.1 Compliance</h3>
+                    <p>Test against Web Content Accessibility Guidelines (WCAG) 2.1 standards at levels A, AA, and AAA.</p>
+                </div>
+                <div class="feature">
+                    <h3>Automated Testing</h3>
+                    <p>Schedule regular accessibility tests to monitor compliance over time.</p>
+                </div>
+                <div class="feature">
+                    <h3>Detailed Reports</h3>
+                    <p>Generate comprehensive reports with actionable insights and remediation guidance.</p>
+                </div>
+                <div class="feature">
+                    <h3>Multi-Page Analysis</h3>
+                    <p>Test entire websites with automated page discovery and batch testing.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Testing Types Section -->
+        <section class="help-section">
+            <h2>Testing Capabilities</h2>
+            <div class="testing-types">
+                <div class="test-type">
+                    <h3>HTML Structure Testing</h3>
+                    <ul>
+                        <li>Heading hierarchy validation</li>
+                        <li>Form label association</li>
+                        <li>Image alt text checking</li>
+                        <li>Link accessibility analysis</li>
+                        <li>ARIA usage validation</li>
+                    </ul>
+                </div>
+                <div class="test-type">
+                    <h3>CSS Accessibility Testing</h3>
+                    <ul>
+                        <li>Color contrast ratios</li>
+                        <li>Font size compliance</li>
+                        <li>Focus indicator visibility</li>
+                        <li>Touch target sizing</li>
+                        <li>Animation safety checks</li>
+                    </ul>
+                </div>
+                <div class="test-type">
+                    <h3>JavaScript Analysis</h3>
+                    <ul>
+                        <li>Keyboard navigation support</li>
+                        <li>Dynamic content updates</li>
+                        <li>Focus management</li>
+                        <li>Screen reader compatibility</li>
+                        <li>Motion preference respect</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQ Section -->
+        <section class="help-section">
+            <h2>Frequently Asked Questions</h2>
+            <div class="faq">
+                <div class="faq-item">
+                    <h3>How accurate are the test results?</h3>
+                    <p>AutoTest combines automated testing with manual review guidelines. While automated tests catch many issues, manual testing is still recommended for complete accessibility validation.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>What browsers are supported?</h3>
+                    <p>AutoTest uses Chrome and Firefox for testing. Results are applicable across modern browsers that support web standards.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Can I test password-protected pages?</h3>
+                    <p>Currently, AutoTest focuses on publicly accessible pages. Authentication support is planned for future releases.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>How do I interpret severity levels?</h3>
+                    <p><strong>Critical:</strong> Blocks access for users with disabilities<br>
+                       <strong>Serious:</strong> Significant barriers to accessibility<br>
+                       <strong>Moderate:</strong> Some users may experience difficulties<br>
+                       <strong>Minor:</strong> Best practice violations</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Resources Section -->
+        <section class="help-section">
+            <h2>Additional Resources</h2>
+            <div class="resources">
+                <div class="resource">
+                    <h3>WCAG Guidelines</h3>
+                    <p>Learn more about Web Content Accessibility Guidelines</p>
+                    <a href="https://www.w3.org/WAI/WCAG21/quickref/" target="_blank" class="btn btn-outline">WCAG Quick Reference</a>
+                </div>
+                <div class="resource">
+                    <h3>Accessibility Testing</h3>
+                    <p>Best practices for manual accessibility testing</p>
+                    <a href="https://webaim.org/articles/" target="_blank" class="btn btn-outline">WebAIM Articles</a>
+                </div>
+                <div class="resource">
+                    <h3>Color Contrast</h3>
+                    <p>Tools and guidelines for color contrast testing</p>
+                    <a href="https://webaim.org/resources/contrastchecker/" target="_blank" class="btn btn-outline">Contrast Checker</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.help-container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.help-section {
+    background: white;
+    margin-bottom: 2rem;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.help-section h2 {
+    color: #2c5aa0;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid #e1e8ed;
+    padding-bottom: 0.5rem;
+}
+
+.steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.step {
+    padding: 1.5rem;
+    border: 2px solid #e1e8ed;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.step h3 {
+    color: #2c5aa0;
+    margin-bottom: 1rem;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.feature {
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.feature h3 {
+    color: #2c5aa0;
+    margin-bottom: 1rem;
+}
+
+.testing-types {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.test-type h3 {
+    color: #2c5aa0;
+    margin-bottom: 1rem;
+}
+
+.test-type ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+.test-type li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e1e8ed;
+}
+
+.test-type li:before {
+    content: "✓";
+    color: #28a745;
+    font-weight: bold;
+    margin-right: 0.5rem;
+}
+
+.faq {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.faq-item {
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.faq-item h3 {
+    color: #2c5aa0;
+    margin-bottom: 1rem;
+}
+
+.resources {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.resource {
+    padding: 1.5rem;
+    border: 2px solid #e1e8ed;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.resource h3 {
+    color: #2c5aa0;
+    margin-bottom: 1rem;
+}
+
+.btn.btn-outline {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border: 2px solid #2c5aa0;
+    color: #2c5aa0;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.btn.btn-outline:hover {
+    background: #2c5aa0;
+    color: white;
+}
+</style>
+{% endblock %}

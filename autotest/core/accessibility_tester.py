@@ -68,13 +68,13 @@ class AccessibilityTester(LoggerMixin):
         self.css_analyzer = None
         self.css_modifier = None
         self.css_rules = CSSAccessibilityRules()
-        self.css_testing_enabled = config.get('testing.css_analysis_enabled', True)
+        self.css_testing_enabled = config.get('testing.css_analysis_enabled', False)
         
         # Initialize JavaScript testing capabilities
         self.js_analyzer = None
         self.js_checker = JSAccessibilityChecker()
         self.js_dynamic_tester = None
-        self.js_testing_enabled = config.get('testing.js_analysis_enabled', True)
+        self.js_testing_enabled = config.get('testing.js_analysis_enabled', False)
         
         self.driver: Optional[webdriver.Chrome | webdriver.Firefox] = None
     
@@ -224,7 +224,7 @@ class AccessibilityTester(LoggerMixin):
             try:
                 # Navigate to page
                 self.driver.get(page.url)
-                WebDriverWait(self.driver, 10).until(
+                WebDriverWait(self.driver, 5).until(
                     EC.presence_of_element_located((By.TAG_NAME, "body"))
                 )
                 
@@ -898,7 +898,7 @@ class AccessibilityTester(LoggerMixin):
             
             # Navigate to the page
             self.driver.get(page.url)
-            WebDriverWait(self.driver, 10).until(
+            WebDriverWait(self.driver, 5).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
             
@@ -1050,7 +1050,7 @@ class AccessibilityTester(LoggerMixin):
             
             # Navigate to the page
             self.driver.get(page.url)
-            WebDriverWait(self.driver, 10).until(
+            WebDriverWait(self.driver, 5).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
             

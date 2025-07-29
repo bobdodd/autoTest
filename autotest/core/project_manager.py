@@ -250,7 +250,7 @@ class ProjectManager(LoggerMixin):
             }
     
     def add_website_to_project(self, project_id: str, name: str, url: str, 
-                             scraping_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                             description: str = "", scraping_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Add a website to a project
         
@@ -272,7 +272,7 @@ class ProjectManager(LoggerMixin):
                 }
             
             website_id = self.project_repo.add_website_to_project(
-                project_id, name, url, scraping_config
+                project_id, name, url, description, scraping_config
             )
             
             if website_id:

@@ -74,16 +74,16 @@ class HistoryService:
         """Initialize database collections for history tracking"""
         try:
             # Create indexes for efficient querying
-            self.db_connection.db.history_snapshots.create_index("snapshot_id", unique=True)
-            self.db_connection.db.history_snapshots.create_index("snapshot_date")
-            self.db_connection.db.history_snapshots.create_index("project_id")
-            self.db_connection.db.history_snapshots.create_index("website_id")
-            self.db_connection.db.history_snapshots.create_index("page_id")
+            self.db_connection.database.history_snapshots.create_index("snapshot_id", unique=True)
+            self.db_connection.database.history_snapshots.create_index("snapshot_date")
+            self.db_connection.database.history_snapshots.create_index("project_id")
+            self.db_connection.database.history_snapshots.create_index("website_id")
+            self.db_connection.database.history_snapshots.create_index("page_id")
             
             # Trending metrics
-            self.db_connection.db.trending_metrics.create_index("metric_name")
-            self.db_connection.db.trending_metrics.create_index("project_id")
-            self.db_connection.db.trending_metrics.create_index("calculated_date")
+            self.db_connection.database.trending_metrics.create_index("metric_name")
+            self.db_connection.database.trending_metrics.create_index("project_id")
+            self.db_connection.database.trending_metrics.create_index("calculated_date")
             
             self.logger.info("History service database collections initialized")
             
@@ -123,7 +123,7 @@ class HistoryService:
             )
             
             # Store in database
-            self.db_connection.db.history_snapshots.insert_one(asdict(snapshot))
+            self.db_connection.database.history_snapshots.insert_one(asdict(snapshot))
             
             self.logger.info(f"Created history snapshot: {snapshot_id}")
             return snapshot_id
@@ -166,7 +166,7 @@ class HistoryService:
             
             # Execute query
             snapshots = list(
-                self.db_connection.db.history_snapshots
+                self.db_connection.database.history_snapshots
                 .find(query)
                 .sort('snapshot_date', -1)
                 .limit(limit)
@@ -496,7 +496,7 @@ class HistoryService:
             analysis['_id'] = f"trend_{analysis.get('project_id', 'global')}_{datetime.now().isoformat()}"
             analysis['calculated_date'] = datetime.now()
             
-            self.db_connection.db.trending_metrics.insert_one(analysis)
+            self.db_connection.database.trending_metrics.insert_one(analysis)
             self.logger.info("Stored trending analysis")
             
         except Exception as e:
@@ -538,7 +538,7 @@ class HistoryService:
                 target_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
                 
                 # Find snapshot closest to target date
-                snapshot = self.db_connection.db.history_snapshots.find_one({
+                snapshot = self.db_connection.database.history_snapshots.find_one({
                     'project_id': project_id,
                     'snapshot_date': {
                         '$gte': target_date - timedelta(days=1),
@@ -646,17 +646,17 @@ class HistoryService:
             if project_id:
                 query['project_id'] = project_id
             
-            total_snapshots = self.db_connection.db.history_snapshots.count_documents(query)
+            total_snapshots = self.db_connection.database.history_snapshots.count_documents(query)
             
             # Recent snapshots (last 30 days)
             recent_date = datetime.now() - timedelta(days=30)
-            recent_snapshots = self.db_connection.db.history_snapshots.count_documents({
+            recent_snapshots = self.db_connection.database.history_snapshots.count_documents({
                 **query,
                 'snapshot_date': {'$gte': recent_date}
             })
             
             # Get latest snapshot for current metrics
-            latest_snapshot = self.db_connection.db.history_snapshots.find_one(
+            latest_snapshot = self.db_connection.database.history_snapshots.find_one(
                 query,
                 sort=[('snapshot_date', -1)]
             )
@@ -676,7 +676,7 @@ class HistoryService:
                 stats['current_violations'] = latest_snapshot.get('total_violations')
             
             # Get oldest snapshot
-            oldest_snapshot = self.db_connection.db.history_snapshots.find_one(
+            oldest_snapshot = self.db_connection.database.history_snapshots.find_one(
                 query,
                 sort=[('snapshot_date', 1)]
             )

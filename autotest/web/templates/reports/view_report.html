@@ -1,0 +1,134 @@
+{% extends "base/layout.html" %}
+
+{% block title %}View Report - AutoTest{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="page-header">
+        <h1>Report: {{ report.report_name or 'Accessibility Report' }}</h1>
+        <div class="page-actions">
+            <a href="{{ url_for('reports.list_reports') }}" class="btn btn-secondary">Back to Reports</a>
+            <a href="{{ url_for('reports.download_report', report_id=report.report_id) }}" class="btn btn-primary">Download Report</a>
+        </div>
+    </div>
+
+    <div class="report-metadata">
+        <div class="metadata-grid">
+            <div class="metadata-item">
+                <span class="label">Template:</span>
+                <span class="value">{{ report.template_name or report.template_id }}</span>
+            </div>
+            <div class="metadata-item">
+                <span class="label">Generated:</span>
+                <span class="value">{{ report.created_date | format_datetime }}</span>
+            </div>
+            <div class="metadata-item">
+                <span class="label">Format:</span>
+                <span class="value">{{ report.format | upper }}</span>
+            </div>
+            {% if context.project %}
+            <div class="metadata-item">
+                <span class="label">Project:</span>
+                <span class="value">{{ context.project.name }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="report-content">
+        {% if report.format == 'html' %}
+            <div class="html-report">
+                {{ report.formatted_output | safe }}
+            </div>
+        {% else %}
+            <div class="report-preview">
+                <p>This report is in {{ report.format | upper }} format. Click "Download Report" to view the full report.</p>
+                {% if report.sections %}
+                <h3>Report Sections:</h3>
+                <ul>
+                {% for section in report.sections %}
+                    <li>{{ section.title or section.section_id }}</li>
+                {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+}
+
+.page-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.report-metadata {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.metadata-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.metadata-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.metadata-item .label {
+    font-weight: 600;
+    color: #666;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.25rem;
+}
+
+.metadata-item .value {
+    font-size: 1rem;
+    color: #333;
+}
+
+.report-content {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.html-report {
+    padding: 2rem;
+}
+
+.report-preview {
+    padding: 2rem;
+    text-align: center;
+    color: #666;
+}
+
+.report-preview h3 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+.report-preview ul {
+    text-align: left;
+    max-width: 400px;
+    margin: 0 auto;
+}
+</style>
+{% endblock %}

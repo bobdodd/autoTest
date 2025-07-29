@@ -586,6 +586,16 @@
       });
     },
 
+    announceDisabledChange: function(element) {
+      const isDisabled = element.hasAttribute('disabled') || 
+                        element.getAttribute('aria-disabled') === 'true';
+      const label = this.getElementLabel(element);
+      
+      this.announce(`${label} ${isDisabled ? 'disabled' : 'enabled'}`, 'polite', {
+        context: 'state'
+      });
+    },
+
     announcePageChange: function() {
       const title = document.title;
       const main = document.querySelector('main h1, h1');
@@ -608,6 +618,71 @@
       
       this.announce(`${label}: ${percentage}% complete`, 'polite', {
         context: 'progress'
+      });
+    },
+
+    announceBreadcrumbChange: function(breadcrumbs) {
+      const current = breadcrumbs.querySelector('[aria-current="page"]');
+      if (current) {
+        const label = this.getTextContent(current);
+        this.announce(`Current page: ${label}`, 'polite', {
+          context: 'navigation'
+        });
+      }
+    },
+
+    announceCheckboxChange: function(element) {
+      const label = this.getFieldLabel(element);
+      const state = element.checked ? 'checked' : 'unchecked';
+      
+      this.announce(`${label} ${state}`, 'assertive', {
+        context: 'form'
+      });
+    },
+
+    announceRadioChange: function(element) {
+      const label = this.getFieldLabel(element);
+      
+      this.announce(`${label} selected`, 'assertive', {
+        context: 'form'
+      });
+    },
+
+    announceSelectChange: function(element) {
+      const label = this.getFieldLabel(element);
+      const value = element.options[element.selectedIndex].text;
+      
+      this.announce(`${label}: ${value} selected`, 'polite', {
+        context: 'form'
+      });
+    },
+
+    announceLoadingState: function(element) {
+      const label = this.getElementLabel(element);
+      const isLoading = element.getAttribute('aria-busy') === 'true' ||
+                       element.classList.contains('loading');
+      
+      this.announce(`${label} ${isLoading ? 'loading' : 'loaded'}`, 'polite', {
+        context: 'state'
+      });
+    },
+
+    announcePagination: function(element) {
+      const current = element.querySelector('[aria-current="page"]');
+      if (current) {
+        const pageNum = this.getTextContent(current);
+        this.announce(`Page ${pageNum}`, 'polite', {
+          context: 'navigation'
+        });
+      }
+    },
+
+    announceResults: function(element) {
+      const count = element.querySelectorAll('.result-item, .violation').length;
+      const type = element.classList.contains('test-results') ? 'test results' : 'violations';
+      
+      this.announce(`${count} ${type} found`, 'polite', {
+        context: 'results'
       });
     },
 

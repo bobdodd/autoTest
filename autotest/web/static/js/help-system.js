@@ -406,6 +406,18 @@
     },
 
     /**
+     * Setup help modal functionality
+     */
+    setupHelpModals: function() {
+      // Add event listeners for modal triggers
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && this.helpModalOpen) {
+          this.closeHelpModal();
+        }
+      });
+    },
+
+    /**
      * Show help modal for specific context
      */
     showHelpModal: function(context) {
@@ -509,6 +521,18 @@
       });
 
       return modal;
+    },
+
+    /**
+     * Close help modal
+     */
+    closeHelpModal: function() {
+      const modal = document.querySelector('.help-modal');
+      if (modal) {
+        modal.remove();
+        this.helpModalOpen = false;
+        A11y.announce('Help closed');
+      }
     },
 
     /**

@@ -1,0 +1,352 @@
+{% extends "base/layout.html" %}
+
+{% block title %}History Dashboard - AutoTest{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="page-header">
+        <h1>History & Trends Dashboard</h1>
+        <p>Track accessibility improvements and compliance trends over time.</p>
+        <div class="header-actions">
+            <a href="{{ url_for('history.list_snapshots') }}" class="btn btn-primary">
+                <i class="icon-plus"></i> View Snapshots
+            </a>
+            <a href="{{ url_for('history.trending_analysis') }}" class="btn btn-outline">
+                <i class="icon-chart"></i> View Trends
+            </a>
+        </div>
+    </div>
+
+    <!-- Overview Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>Total Snapshots</h3>
+            <span class="stat-number">{{ stats.total_snapshots }}</span>
+            <span class="stat-change positive">+0 this week</span>
+        </div>
+        <div class="stat-card">
+            <h3>Projects Tracked</h3>
+            <span class="stat-number">{{ stats.projects_tracked }}</span>
+            <span class="stat-change neutral">Active monitoring</span>
+        </div>
+        <div class="stat-card">
+            <h3>Avg Compliance</h3>
+            <span class="stat-number">{{ stats.avg_compliance_score }}%</span>
+            <span class="stat-change {{ stats.trend_direction }}">{{ stats.trend_direction|title }} trend</span>
+        </div>
+        <div class="stat-card">
+            <h3>Data Range</h3>
+            <span class="stat-number">0</span>
+            <span class="stat-change neutral">Days of history</span>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <section class="dashboard-section">
+        <h2>Quick Actions</h2>
+        <div class="actions-grid">
+            <div class="action-card">
+                <h3>Create Snapshot</h3>
+                <p>Capture the current state of accessibility compliance for your projects.</p>
+                <a href="{{ url_for('history.list_snapshots') }}" class="btn btn-primary">View Snapshots</a>
+            </div>
+            <div class="action-card">
+                <h3>Compare Periods</h3>
+                <p>Compare accessibility metrics between different time periods.</p>
+                <a href="{{ url_for('history.comparison_tool') }}" class="btn btn-outline">Compare</a>
+            </div>
+            <div class="action-card">
+                <h3>Export Data</h3>
+                <p>Download historical data for external analysis and reporting.</p>
+                <a href="{{ url_for('history.history_reports') }}" class="btn btn-outline">Reports</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Recent Snapshots -->
+    <section class="dashboard-section">
+        <h2>Recent Snapshots</h2>
+        {% if recent_snapshots and recent_snapshots|length > 0 %}
+        <div class="snapshots-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Project</th>
+                        <th>Pages</th>
+                        <th>Compliance Score</th>
+                        <th>Critical Issues</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for snapshot in recent_snapshots %}
+                    <tr>
+                        <td>{{ snapshot.date.strftime('%Y-%m-%d') if snapshot.date else 'N/A' }}</td>
+                        <td>{{ snapshot.project_name }}</td>
+                        <td>{{ snapshot.pages_count }}</td>
+                        <td>
+                            <span class="score score-{{ 'high' if snapshot.compliance_score >= 80 else 'medium' if snapshot.compliance_score >= 60 else 'low' }}">
+                                {{ snapshot.compliance_score }}%
+                            </span>
+                        </td>
+                        <td>{{ snapshot.critical_issues }}</td>
+                        <td><span class="status {{ snapshot.status }}">{{ snapshot.status|title }}</span></td>
+                        <td>
+                            <a href="{{ url_for('history.list_snapshots') }}" class="btn btn-sm">View</a>
+                            <a href="{{ url_for('history.comparison_tool') }}" class="btn btn-sm btn-outline">Compare</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <h3>No snapshots created yet</h3>
+            <p>Start tracking your accessibility progress by creating your first snapshot.</p>
+            <a href="{{ url_for('history.list_snapshots') }}" class="btn btn-primary">View Snapshots</a>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- Trend Chart Placeholder -->
+    <section class="dashboard-section">
+        <h2>Compliance Trends</h2>
+        <div class="chart-placeholder">
+            <div class="chart-content">
+                <h3>Compliance Score Over Time</h3>
+                <p>Historical data will be displayed here once snapshots are created.</p>
+                <div class="sample-chart">
+                    <div class="chart-bar" style="height: 60%;" title="Week 1: 60%"></div>
+                    <div class="chart-bar" style="height: 65%;" title="Week 2: 65%"></div>
+                    <div class="chart-bar" style="height: 70%;" title="Week 3: 70%"></div>
+                    <div class="chart-bar" style="height: 75%;" title="Week 4: 75%"></div>
+                    <div class="chart-bar" style="height: 80%;" title="Week 5: 80%"></div>
+                </div>
+                <div class="chart-labels">
+                    <span>5 weeks ago</span>
+                    <span>Today</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Insights Section -->
+    <section class="dashboard-section">
+        <h2>Accessibility Insights</h2>
+        <div class="insights-grid">
+            <div class="insight-card">
+                <h3>Common Issues</h3>
+                <p>No data available yet. Insights will appear after running accessibility tests.</p>
+            </div>
+            <div class="insight-card">
+                <h3>Improvement Areas</h3>
+                <p>Recommendations will be generated based on historical data analysis.</p>
+            </div>
+            <div class="insight-card">
+                <h3>Best Practices</h3>
+                <p>Success patterns and best practices will be identified from your compliance data.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+<style>
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.stat-card h3 {
+    margin: 0 0 0.5rem 0;
+    color: #666;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.stat-number {
+    display: block;
+    font-size: 2rem;
+    font-weight: bold;
+    color: #2c5aa0;
+    margin-bottom: 0.5rem;
+}
+
+.stat-change {
+    font-size: 0.875rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+}
+
+.stat-change.positive { background: #d4edda; color: #155724; }
+.stat-change.negative { background: #f8d7da; color: #721c24; }
+.stat-change.neutral { background: #e2e3e5; color: #495057; }
+
+.dashboard-section {
+    background: white;
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.dashboard-section h2 {
+    margin: 0 0 1.5rem 0;
+    color: #2c5aa0;
+    border-bottom: 2px solid #e1e8ed;
+    padding-bottom: 0.5rem;
+}
+
+.actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.action-card {
+    border: 2px solid #e1e8ed;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.action-card h3 {
+    color: #2c5aa0;
+    margin-bottom: 1rem;
+}
+
+.snapshots-table {
+    overflow-x: auto;
+}
+
+.snapshots-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.snapshots-table th,
+.snapshots-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid #e1e8ed;
+}
+
+.snapshots-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+}
+
+.score {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+.score.score-high { background: #d4edda; color: #155724; }
+.score.score-medium { background: #fff3cd; color: #856404; }
+.score.score-low { background: #f8d7da; color: #721c24; }
+
+.status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.status.completed { background: #d4edda; color: #155724; }
+.status.pending { background: #fff3cd; color: #856404; }
+.status.failed { background: #f8d7da; color: #721c24; }
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #666;
+}
+
+.chart-placeholder {
+    padding: 2rem;
+    border: 2px dashed #e1e8ed;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.chart-content h3 {
+    color: #2c5aa0;
+    margin-bottom: 1rem;
+}
+
+.sample-chart {
+    display: flex;
+    align-items: end;
+    justify-content: center;
+    gap: 1rem;
+    height: 200px;
+    margin: 2rem 0;
+}
+
+.chart-bar {
+    width: 40px;
+    background: linear-gradient(to top, #2c5aa0, #4a90e2);
+    border-radius: 4px 4px 0 0;
+    transition: opacity 0.3s ease;
+}
+
+.chart-bar:hover {
+    opacity: 0.8;
+}
+
+.chart-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+    color: #666;
+}
+
+.insights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.insight-card {
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.insight-card h3 {
+    color: #2c5aa0;
+    margin-bottom: 1rem;
+}
+
+.btn.btn-sm {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.btn.btn-outline {
+    background: transparent;
+    border: 2px solid #2c5aa0;
+    color: #2c5aa0;
+}
+
+.btn.btn-outline:hover {
+    background: #2c5aa0;
+    color: white;
+}
+</style>
+{% endblock %}

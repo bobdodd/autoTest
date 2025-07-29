@@ -77,9 +77,9 @@
                         <polyline points="14,2 14,8 20,8" stroke="currentColor" fill="none" stroke-width="2"/>
                     </svg>
                 </div>
-                <div class="stat-value">{{ total_pages or 0 }}</div>
+                <div class="stat-value">{{ statistics.total_pages or 0 }}</div>
                 <div class="stat-label">
-                    {{ total_pages or 0 | pluralize('page', 'pages') }} discovered
+                    {{ statistics.total_pages or 0 | pluralize('page', 'pages') }} discovered
                 </div>
             </div>
             
@@ -91,9 +91,9 @@
                         <polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" fill="none" stroke-width="2"/>
                     </svg>
                 </div>
-                <div class="stat-value">{{ total_tests or 0 }}</div>
+                <div class="stat-value">{{ statistics.total_tests or 0 }}</div>
                 <div class="stat-label">
-                    {{ total_tests or 0 | pluralize('test', 'tests') }} completed
+                    {{ statistics.total_tests or 0 | pluralize('test', 'tests') }} completed
                 </div>
             </div>
             
@@ -106,9 +106,9 @@
                         <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/>
                     </svg>
                 </div>
-                <div class="stat-value">{{ total_issues or 0 }}</div>
+                <div class="stat-value">{{ statistics.total_violations or 0 }}</div>
                 <div class="stat-label">
-                    accessibility {{ total_issues or 0 | pluralize('issue', 'issues') }}
+                    accessibility {{ statistics.total_violations or 0 | pluralize('issue', 'issues') }}
                 </div>
             </div>
         </div>
@@ -166,8 +166,8 @@
                         
                         <div class="website-stats">
                             <div class="website-stat">
-                                <span class="website-stat-value">{{ website.pages | length }}</span>
-                                <span class="website-stat-label">{{ website.pages | length | pluralize('page', 'pages') }}</span>
+                                <span class="website-stat-value">{{ statistics.pages_by_website[website.name] or 0 }}</span>
+                                <span class="website-stat-label">{{ statistics.pages_by_website[website.name] or 0 | pluralize('page', 'pages') }}</span>
                             </div>
                             {% if website.last_scan_date %}
                                 <div class="website-stat">
@@ -689,15 +689,32 @@ function runAllTests() {
         Running Tests...
     `;
     
-    // Here you would make an AJAX call to start the testing process
-    // For now, we'll simulate the process
-    setTimeout(() => {
+    // Make API call to start testing process
+    fetch('/testing/project/{{ project.project_id }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Redirect to testing dashboard to monitor progress
+            window.location.href = '/testing/dashboard';
+        } else {
+            // Handle error case
+            button.disabled = false;
+            button.innerHTML = originalText;
+            alert('Error starting tests: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        // Handle network or other errors
         button.disabled = false;
         button.innerHTML = originalText;
-        
-        // Show success message (you could implement a toast notification system)
-        console.log('All tests completed');
-    }, 3000);
+        console.error('Error starting tests:', error);
+        alert('Failed to start tests. Please try again.');
+    });
 }
 
 function testWebsite(websiteId) {

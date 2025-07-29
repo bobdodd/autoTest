@@ -23,8 +23,10 @@ logger = logging.getLogger(__name__)
 
 def init_history_service(config, db_connection):
     """Initialize history service (called by app factory)"""
-    global history_service
+    global history_service, project_manager, website_manager
     history_service = HistoryService(config, db_connection)
+    project_manager = ProjectManager(db_connection)
+    website_manager = WebsiteManager(db_connection)
 
 
 @history_bp.route('/dashboard')

@@ -80,10 +80,10 @@ class ReportingService:
         """Initialize database collections for reports"""
         try:
             # Create indexes for efficient querying
-            self.db_connection.db.generated_reports.create_index("report_id", unique=True)
-            self.db_connection.db.generated_reports.create_index("created_date")
-            self.db_connection.db.generated_reports.create_index("project_id")
-            self.db_connection.db.generated_reports.create_index("report_type")
+            self.db_connection.database.generated_reports.create_index("report_id", unique=True)
+            self.db_connection.database.generated_reports.create_index("created_date")
+            self.db_connection.database.generated_reports.create_index("project_id")
+            self.db_connection.database.generated_reports.create_index("report_type")
             
             self.logger.info("Reporting service database collections initialized")
             
@@ -299,8 +299,36 @@ class ReportingService:
     def _get_test_results_data(self, project_id: str, website_id: str, time_range: str) -> Dict[str, Any]:
         """Get test results data for the report"""
         try:
-            # This would integrate with the testing service
-            # For now, return mock data structure
+            from ..models.test_result import TestResultRepository
+            
+            test_result_repo = TestResultRepository(self.db_connection)
+            
+            if project_id:
+                # Get all test results for the project
+                results = test_result_repo.get_results_by_project(project_id)
+                
+                if results:
+                    # Calculate statistics from actual test results
+                    total_tests_run = len(results)
+                    total_pages_tested = len(set(result.page_id for result in results))
+                    
+                    # Get latest test date
+                    latest_result = max(results, key=lambda r: r.test_date if r.test_date else datetime.min)
+                    last_test_date = latest_result.test_date if latest_result else None
+                    
+                    # Calculate completion rate (simplified - could be enhanced with page count)
+                    test_completion_rate = 100 if total_pages_tested > 0 else 0
+                    
+                    return {
+                        'total_pages_tested': total_pages_tested,
+                        'total_tests_run': total_tests_run,
+                        'test_completion_rate': test_completion_rate,
+                        'average_test_duration': 0,  # Would need to add duration tracking
+                        'last_test_date': last_test_date,
+                        'test_frequency': 'varies'
+                    }
+            
+            # Return defaults if no project or no results
             return {
                 'total_pages_tested': 0,
                 'total_tests_run': 0,
@@ -317,9 +345,46 @@ class ReportingService:
     def _get_violations_data(self, project_id: str, website_id: str, time_range: str) -> List[Dict[str, Any]]:
         """Get violations data for the report"""
         try:
-            # This would query the actual violations from the database
-            # For now, return mock data structure
-            return []
+            from ..models.test_result import TestResultRepository
+            from ..models.page import PageRepository
+            
+            test_result_repo = TestResultRepository(self.db_connection)
+            page_repo = PageRepository(self.db_connection)
+            
+            violations = []
+            
+            if project_id:
+                # Get all test results for the project
+                results = test_result_repo.get_results_by_project(project_id)
+                
+                for result in results:
+                    # Get page information for context
+                    page = page_repo.get_page(result.page_id)
+                    page_url = page.url if page else "Unknown URL"
+                    page_title = page.title if page else "Unknown Page"
+                    
+                    # Convert each violation to report format
+                    for violation in result.violations:
+                        violation_dict = {
+                            'violation_id': violation.violation_id,
+                            'rule_name': violation.violation_id,
+                            'description': violation.description,
+                            'help': violation.help,
+                            'help_url': violation.help_url,
+                            'severity': violation.impact,  # Use impact as severity
+                            'wcag_level': 'AA',  # Default to AA, could be enhanced
+                            'wcag_guideline': violation.help,
+                            'element': f"{len(violation.nodes)} element(s)",
+                            'page_id': result.page_id,
+                            'page_url': page_url,
+                            'page_title': page_title,
+                            'test_date': result.test_date,
+                            'nodes': violation.nodes,
+                            'recommendation': f"Fix this {violation.impact} accessibility issue: {violation.help}"
+                        }
+                        violations.append(violation_dict)
+            
+            return violations
             
         except Exception as e:
             self.logger.error(f"Error getting violations data: {e}")
@@ -384,9 +449,51 @@ class ReportingService:
     def _get_historical_data(self, project_id: str, time_range: str) -> List[Dict[str, Any]]:
         """Get historical data for trending analysis"""
         try:
-            # This would integrate with the history service
-            # For now, return mock data structure
-            return []
+            from ..models.test_result import TestResultRepository
+            from collections import defaultdict
+            
+            test_result_repo = TestResultRepository(self.db_connection)
+            
+            if not project_id:
+                return []
+            
+            # Get all test results for the project
+            results = test_result_repo.get_results_by_project(project_id)
+            
+            if not results:
+                return []
+            
+            # Group results by date for trending
+            daily_data = defaultdict(lambda: {
+                'test_count': 0,
+                'total_violations': 0,
+                'violations_by_severity': {'critical': 0, 'serious': 0, 'moderate': 0, 'minor': 0}
+            })
+            
+            for result in results:
+                if result.test_date:
+                    date_key = result.test_date.date().isoformat()
+                    daily_data[date_key]['test_count'] += 1
+                    
+                    # Count violations by severity
+                    for violation in result.violations:
+                        daily_data[date_key]['total_violations'] += 1
+                        severity = violation.impact
+                        if severity in daily_data[date_key]['violations_by_severity']:
+                            daily_data[date_key]['violations_by_severity'][severity] += 1
+            
+            # Convert to list and sort by date
+            historical_data = []
+            for date_str, data in sorted(daily_data.items()):
+                historical_data.append({
+                    'date': date_str,
+                    'test_count': data['test_count'],
+                    'total_violations': data['total_violations'],
+                    'violations_by_severity': data['violations_by_severity'],
+                    'accessibility_score': max(0, 100 - (data['total_violations'] * 2))  # Simplified score
+                })
+            
+            return historical_data
             
         except Exception as e:
             self.logger.error(f"Error getting historical data: {e}")
@@ -804,7 +911,10 @@ class ReportingService:
             html_content += f'<h2>{section.get("title", "Untitled Section")}</h2>'
             
             # Convert markdown-style content to HTML
-            content = section.get('content', '').replace('**', '<strong>').replace('**', '</strong>')
+            content = section.get('content', '')
+            # Fix markdown bold formatting by replacing **text** with <strong>text</strong>
+            import re
+            content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', content)
             content = content.replace('## ', '<h3>').replace('\n', '</h3>\n')
             content = content.replace('- ', '<li>').replace('\n<li>', '</li>\n<li>')
             
@@ -851,8 +961,11 @@ class ReportingService:
                 story.append(section_title)
                 story.append(Spacer(1, 12))
                 
-                # Section content
-                content = section.get('content', '').replace('**', '<b>').replace('**', '</b>')
+                # Section content - properly handle markdown bold syntax
+                content = section.get('content', '')
+                # Fix markdown bold formatting by replacing **text** with <b>text</b>
+                import re
+                content = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', content)
                 section_content = Paragraph(content, styles['Normal'])
                 story.append(section_content)
                 story.append(Spacer(1, 24))
@@ -893,7 +1006,7 @@ class ReportingService:
             if len(report_copy.get('formatted_output', '')) > 100000:  # 100KB limit
                 report_copy['formatted_output'] = '[Large content - stored separately]'
             
-            self.db_connection.db.generated_reports.insert_one(report_copy)
+            self.db_connection.database.generated_reports.insert_one(report_copy)
             self.logger.info(f"Stored report: {report['report_id']}")
             
         except Exception as e:
@@ -902,7 +1015,7 @@ class ReportingService:
     def get_report(self, report_id: str) -> Optional[Dict[str, Any]]:
         """Get a stored report by ID"""
         try:
-            report = self.db_connection.db.generated_reports.find_one(
+            report = self.db_connection.database.generated_reports.find_one(
                 {'report_id': report_id}
             )
             
@@ -923,7 +1036,7 @@ class ReportingService:
                 query['project_id'] = project_id
             
             reports = list(
-                self.db_connection.db.generated_reports
+                self.db_connection.database.generated_reports
                 .find(query, {'formatted_output': 0})  # Exclude large content
                 .sort('created_date', -1)
                 .limit(limit)
@@ -942,7 +1055,7 @@ class ReportingService:
     def delete_report(self, report_id: str) -> bool:
         """Delete a report"""
         try:
-            result = self.db_connection.db.generated_reports.delete_one(
+            result = self.db_connection.database.generated_reports.delete_one(
                 {'report_id': report_id}
             )
             

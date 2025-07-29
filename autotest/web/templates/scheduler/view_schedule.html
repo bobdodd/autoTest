@@ -1,0 +1,155 @@
+{% extends "base/layout.html" %}
+
+{% block title %}{{ schedule.name }} - Schedule Details - AutoTest{% endblock %}
+
+{% block content %}
+<main id="main-content">
+    <header class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">{{ schedule.name }}</h1>
+            <p class="page-description">
+                {{ schedule.description or "No description provided" }}
+            </p>
+        </div>
+        <div class="page-actions">
+            <button type="button" class="btn btn-primary">
+                Run Now
+            </button>
+            <a href="{{ url_for('scheduler.dashboard') }}" class="btn btn-secondary">
+                Back to Dashboard
+            </a>
+        </div>
+    </header>
+
+    <!-- Schedule Details -->
+    <section class="content-section">
+        <h2 class="section-title">Schedule Configuration</h2>
+        <div class="details-grid">
+            <div class="detail-item">
+                <label class="detail-label">Schedule ID</label>
+                <span class="detail-value">{{ schedule.schedule_id }}</span>
+            </div>
+            
+            <div class="detail-item">
+                <label class="detail-label">Test Type</label>
+                <span class="detail-value">{{ schedule.test_type|title }}</span>
+            </div>
+            
+            <div class="detail-item">
+                <label class="detail-label">Frequency</label>
+                <span class="detail-value">{{ schedule.frequency|title }}</span>
+            </div>
+            
+            <div class="detail-item">
+                <label class="detail-label">Status</label>
+                <span class="detail-value status-{{ schedule.status }}">{{ schedule.status|title }}</span>
+            </div>
+            
+            {% if schedule.project_id %}
+            <div class="detail-item">
+                <label class="detail-label">Project</label>
+                <span class="detail-value">
+                    {% if context.project %}
+                        <a href="{{ url_for('projects.view_project', project_id=schedule.project_id) }}">
+                            {{ context.project.get('project', {}).get('name', schedule.project_id) }}
+                        </a>
+                    {% else %}
+                        {{ schedule.project_id }}
+                    {% endif %}
+                </span>
+            </div>
+            {% endif %}
+            
+            {% if schedule.next_run %}
+            <div class="detail-item">
+                <label class="detail-label">Next Run</label>
+                <span class="detail-value">{{ schedule.next_run|format_datetime }}</span>
+            </div>
+            {% endif %}
+            
+            <div class="detail-item">
+                <label class="detail-label">Created</label>
+                <span class="detail-value">
+                    {{ schedule.created_at|format_datetime if schedule.created_at else "Unknown" }}
+                </span>
+            </div>
+            
+            {% if schedule.created_by %}
+            <div class="detail-item">
+                <label class="detail-label">Created By</label>
+                <span class="detail-value">{{ schedule.created_by }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Execution History -->
+    <section class="content-section">
+        <h2 class="section-title">Execution History</h2>
+        {% if execution_history %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Duration</th>
+                        <th scope="col">Tests Run</th>
+                        <th scope="col">Issues Found</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for execution in execution_history %}
+                    <tr>
+                        <td>{{ execution.executed_at|format_datetime if execution.executed_at else "Unknown" }}</td>
+                        <td>
+                            <span class="status-badge status-{{ execution.status }}">
+                                {{ execution.status|title }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if execution.duration %}
+                                {{ "%.1f"|format(execution.duration) }}s
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ execution.tests_run or 0 }}</td>
+                        <td>{{ execution.issues_found or 0 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <h3 class="empty-state-title">No Execution History</h3>
+            <p class="empty-state-description">
+                This schedule hasn't been executed yet. Use the "Run Now" button to manually trigger a test,
+                or wait for the next scheduled execution.
+            </p>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- Schedule Management -->
+    <section class="content-section">
+        <h2 class="section-title">Schedule Management</h2>
+        <div class="management-actions">
+            <button type="button" class="btn btn-primary">
+                Edit Schedule
+            </button>
+            <button type="button" class="btn btn-warning">
+                {% if schedule.status == 'active' %}Pause{% else %}Resume{% endif %} Schedule
+            </button>
+            <button type="button" class="btn btn-danger">
+                Delete Schedule
+            </button>
+        </div>
+        <p class="management-note">
+            <strong>Note:</strong> Schedule management functionality is currently in development.
+            These actions will be fully functional in a future release.
+        </p>
+    </section>
+</main>
+{% endblock %}

@@ -217,18 +217,44 @@ def create_snapshot():
         
         data = request.get_json() if request.is_json else request.form
         
+        # Get current test results for the project to populate snapshot
+        project_id = data.get('project_id')
+        if not project_id:
+            return jsonify({'error': 'Project ID is required'}), 400
+            
+        # Calculate current metrics from test results
+        from autotest.models.test_result import TestResultRepository
+        test_result_repo = TestResultRepository(history_service.db_connection)
+        
+        # Get violation summary for the project
+        summary = test_result_repo.get_violation_summary_by_project(project_id)
+        
+        # Calculate accessibility score (simplified)
+        total_violations = summary.get('total_violations', 0)
+        critical = summary.get('violations_by_impact', {}).get('critical', 0)
+        serious = summary.get('violations_by_impact', {}).get('serious', 0) 
+        moderate = summary.get('violations_by_impact', {}).get('moderate', 0)
+        minor = summary.get('violations_by_impact', {}).get('minor', 0)
+        
+        # Simple scoring algorithm
+        score_deductions = (critical * 10) + (serious * 5) + (moderate * 2) + (minor * 1)
+        accessibility_score = max(0, 100 - score_deductions)
+        
+        # WCAG compliance rate (no critical/serious = higher compliance)
+        wcag_compliance_rate = max(0, 100 - (critical * 5) - (serious * 2))
+        
         snapshot_data = {
-            'project_id': data.get('project_id'),
+            'project_id': project_id,
             'website_id': data.get('website_id'),
             'page_id': data.get('page_id'),
-            'accessibility_score': float(data.get('accessibility_score', 0)),
-            'total_violations': int(data.get('total_violations', 0)),
-            'critical_violations': int(data.get('critical_violations', 0)),
-            'serious_violations': int(data.get('serious_violations', 0)),
-            'moderate_violations': int(data.get('moderate_violations', 0)),
-            'minor_violations': int(data.get('minor_violations', 0)),
-            'pages_tested': int(data.get('pages_tested', 1)),
-            'wcag_compliance_rate': float(data.get('wcag_compliance_rate', 0)),
+            'accessibility_score': accessibility_score,
+            'total_violations': total_violations,
+            'critical_violations': critical,
+            'serious_violations': serious,
+            'moderate_violations': moderate,
+            'minor_violations': minor,
+            'pages_tested': summary.get('total_tests', 0),
+            'wcag_compliance_rate': wcag_compliance_rate,
             'test_type': data.get('test_type', 'manual'),
             'metadata': {
                 'created_by': data.get('created_by', 'manual'),

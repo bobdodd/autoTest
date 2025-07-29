@@ -1,0 +1,98 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Create Schedule - AutoTest{% endblock %}
+
+{% block content %}
+<main id="main-content">
+    <header class="page-header">
+        <h1 class="page-title">Create Schedule</h1>
+        <p class="page-description">
+            Create a new automated testing schedule to run accessibility tests at regular intervals.
+        </p>
+    </header>
+
+    <section class="content-section">
+        <form method="POST" class="form">
+            <div class="form-group">
+                <label for="name" class="form-label">
+                    Schedule Name <span class="required-indicator" aria-label="Required field">*</span>
+                </label>
+                <input type="text" id="name" name="name" class="form-input" required
+                       placeholder="e.g. Weekly Accessibility Check">
+                <div class="form-help">
+                    Give your schedule a descriptive name.
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description" class="form-label">Description</label>
+                <textarea id="description" name="description" class="form-input" rows="3"
+                          placeholder="Optional description of what this schedule will test..."></textarea>
+                <div class="form-help">
+                    Describe what this schedule will accomplish (optional).
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="project_id" class="form-label">
+                    Project <span class="required-indicator" aria-label="Required field">*</span>
+                </label>
+                <select id="project_id" name="project_id" class="form-input" required>
+                    <option value="">Select a project</option>
+                    {% for project in projects %}
+                    <option value="{{ project.project_id }}">{{ project.name }}</option>
+                    {% endfor %}
+                </select>
+                <div class="form-help">
+                    Choose the project to test on this schedule.
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="frequency" class="form-label">Test Frequency</label>
+                <select id="frequency" name="frequency" class="form-input">
+                    <option value="daily">Daily</option>
+                    <option value="weekly" selected>Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="custom">Custom</option>
+                </select>
+                <div class="form-help">
+                    How often should the tests run?
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="test_type" class="form-label">Test Type</label>
+                <select id="test_type" name="test_type" class="form-input">
+                    <option value="accessibility" selected>Accessibility Testing</option>
+                    <option value="performance">Performance Testing</option>
+                    <option value="full">Full Test Suite</option>
+                </select>
+                <div class="form-help">
+                    What type of tests should be run?
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Create Schedule</button>
+                <a href="{{ url_for('scheduler.dashboard') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </section>
+
+    <!-- Information Section -->
+    <section class="content-section">
+        <div class="info-message">
+            <h2>About Scheduled Testing</h2>
+            <p>
+                Scheduled tests will automatically run accessibility checks on your selected projects at the specified intervals.
+                You'll receive notifications when tests complete and can view historical results to track improvements over time.
+            </p>
+            <p>
+                <strong>Note:</strong> Schedule creation functionality is currently in development. 
+                This form is available for interface testing and will be fully functional in a future release.
+            </p>
+        </div>
+    </section>
+</main>
+{% endblock %}

@@ -22,8 +22,10 @@ logger = logging.getLogger(__name__)
 
 def init_scheduler_service(config, db_connection, testing_service):
     """Initialize scheduler service (called by app factory)"""
-    global scheduler_service
+    global scheduler_service, project_manager, website_manager
     scheduler_service = SchedulerService(config, db_connection, testing_service)
+    project_manager = ProjectManager(db_connection)
+    website_manager = WebsiteManager(db_connection)
 
 
 @scheduler_bp.route('/dashboard')

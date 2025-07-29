@@ -1,0 +1,264 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Compare Periods - AutoTest{% endblock %}
+
+{% block content %}
+<main id="main-content">
+    <header class="page-header">
+        <h1 class="page-title">Compare Periods</h1>
+        <p class="page-description">
+            Compare accessibility metrics between different time periods to track progress and identify trends.
+        </p>
+    </header>
+
+    <!-- Comparison Configuration -->
+    <section class="content-section">
+        <h2 class="section-title">Select Comparison Parameters</h2>
+        <form id="comparisonForm" class="form">
+            <div class="form-group">
+                <label for="project_id" class="form-label">
+                    Project <span class="required-indicator" aria-label="Required field">*</span>
+                </label>
+                <select name="project_id" id="project_id" class="form-input" required>
+                    <option value="">Select a project</option>
+                    {% for project in projects %}
+                    <option value="{{ project.project_id }}">{{ project.name }}</option>
+                    {% endfor %}
+                </select>
+                <div class="form-help">
+                    Choose the project to compare across different time periods.
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="comparison_type" class="form-label">Comparison Type</label>
+                <select name="comparison_type" id="comparison_type" class="form-input">
+                    <option value="date_range">Date Range Comparison</option>
+                    <option value="snapshots">Specific Snapshots</option>
+                </select>
+                <div class="form-help">
+                    Choose how to select the periods for comparison.
+                </div>
+            </div>
+
+            <div id="dateRangeOptions" class="form-group">
+                <label class="form-label">Date Ranges</label>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="period1_start" class="form-label">Period 1 Start</label>
+                        <input type="date" id="period1_start" name="period1_start" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="period1_end" class="form-label">Period 1 End</label>
+                        <input type="date" id="period1_end" name="period1_end" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="period2_start" class="form-label">Period 2 Start</label>
+                        <input type="date" id="period2_start" name="period2_start" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="period2_end" class="form-label">Period 2 End</label>
+                        <input type="date" id="period2_end" name="period2_end" class="form-input">
+                    </div>
+                </div>
+            </div>
+
+            <div id="snapshotOptions" class="form-group" style="display: none;">
+                <label class="form-label">Select Snapshots to Compare</label>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="snapshot1" class="form-label">First Snapshot</label>
+                        <select id="snapshot1" name="snapshot1" class="form-input">
+                            <option value="">Loading snapshots...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="snapshot2" class="form-label">Second Snapshot</label>
+                        <select id="snapshot2" name="snapshot2" class="form-input">
+                            <option value="">Loading snapshots...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-help">
+                    Choose two snapshots to compare their accessibility metrics.
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Generate Comparison</button>
+                <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
+            </div>
+        </form>
+    </section>
+
+    <!-- Comparison Results -->
+    <section id="comparisonResults" class="content-section" style="display: none;">
+        <h2 class="section-title">Comparison Results</h2>
+        <div id="resultsContainer">
+            <!-- Results will be populated here -->
+        </div>
+    </section>
+
+    <!-- No Data Message -->
+    <section class="content-section">
+        <div class="empty-state">
+            <h2 class="empty-state-title">Historical Comparison</h2>
+            <p class="empty-state-description">
+                Select a project and time periods above to compare accessibility metrics over time.
+                This feature helps you track improvements and identify areas that need attention.
+            </p>
+            <p class="empty-state-note">
+                <strong>Note:</strong> You need at least 2 snapshots or test results in different time periods to perform a meaningful comparison.
+            </p>
+        </div>
+    </section>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('comparisonForm');
+    const comparisonType = document.getElementById('comparison_type');
+    const projectSelect = document.getElementById('project_id');
+    
+    // Handle comparison type change
+    if (comparisonType) {
+        comparisonType.addEventListener('change', function() {
+            toggleComparisonOptions(this.value);
+        });
+    }
+    
+    // Handle project selection change
+    if (projectSelect) {
+        projectSelect.addEventListener('change', function() {
+            const projectId = this.value;
+            console.log('Project selected:', projectId, 'Comparison type:', comparisonType.value);
+            if (projectId && comparisonType.value === 'snapshots') {
+                console.log('Calling loadSnapshotsForProject');
+                loadSnapshotsForProject(projectId);
+            } else {
+                console.log('Not loading snapshots - either no project or wrong comparison type');
+            }
+        });
+    } else {
+        console.log('Project select element not found');
+    }
+    
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            const projectId = formData.get('project_id');
+            
+            if (!projectId) {
+                alert('Please select a project');
+                return;
+            }
+            
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
+            submitButton.disabled = true;
+            submitButton.textContent = 'Generating...';
+            
+            // For now, show a placeholder message
+            showComparisonResults('Comparison functionality is in development. This feature will allow you to compare accessibility metrics between different time periods once more historical data is available.');
+            
+            submitButton.disabled = false;
+            submitButton.textContent = originalText;
+        });
+    }
+});
+
+function toggleComparisonOptions(type) {
+    console.log('Toggle comparison options to:', type);
+    const dateRangeOptions = document.getElementById('dateRangeOptions');
+    const snapshotOptions = document.getElementById('snapshotOptions');
+    
+    if (type === 'snapshots') {
+        console.log('Switching to snapshot mode');
+        dateRangeOptions.style.display = 'none';
+        snapshotOptions.style.display = 'block';
+        
+        // Load snapshots if a project is selected
+        const projectId = document.getElementById('project_id').value;
+        console.log('Current project ID:', projectId);
+        if (projectId) {
+            console.log('Loading snapshots immediately for project:', projectId);
+            loadSnapshotsForProject(projectId);
+        } else {
+            console.log('No project selected yet');
+        }
+    } else {
+        console.log('Switching to date range mode');
+        dateRangeOptions.style.display = 'block';
+        snapshotOptions.style.display = 'none';
+    }
+}
+
+function loadSnapshotsForProject(projectId) {
+    const snapshot1Select = document.getElementById('snapshot1');
+    const snapshot2Select = document.getElementById('snapshot2');
+    
+    console.log('Loading snapshots for project:', projectId);
+    
+    // Show loading state
+    snapshot1Select.innerHTML = '<option value="">Loading snapshots...</option>';
+    snapshot2Select.innerHTML = '<option value="">Loading snapshots...</option>';
+    
+    // Fetch snapshots for the project
+    fetch(`/history/api/snapshots/${projectId}`)
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Snapshots data received:', data);
+            if (data.snapshots && data.snapshots.length > 0) {
+                const options = data.snapshots.map(snapshot => {
+                    const date = new Date(snapshot.snapshot_date).toLocaleDateString();
+                    const score = snapshot.accessibility_score ? `${snapshot.accessibility_score.toFixed(1)}%` : 'N/A';
+                    return `<option value="${snapshot.snapshot_id}">${date} - Score: ${score} (${snapshot.total_violations || 0} violations)</option>`;
+                }).join('');
+                
+                snapshot1Select.innerHTML = '<option value="">Select first snapshot</option>' + options;
+                snapshot2Select.innerHTML = '<option value="">Select second snapshot</option>' + options;
+                console.log('Snapshots loaded successfully');
+            } else {
+                console.log('No snapshots found');
+                const noDataOption = '<option value="">No snapshots available</option>';
+                snapshot1Select.innerHTML = noDataOption;
+                snapshot2Select.innerHTML = noDataOption;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading snapshots:', error);
+            const errorOption = `<option value="">Error: ${error.message}</option>`;
+            snapshot1Select.innerHTML = errorOption;
+            snapshot2Select.innerHTML = errorOption;
+        });
+}
+
+function showComparisonResults(message) {
+    const resultsSection = document.getElementById('comparisonResults');
+    const resultsContainer = document.getElementById('resultsContainer');
+    
+    resultsContainer.innerHTML = `
+        <div class="info-message">
+            <h3>Comparison Status</h3>
+            <p>${message}</p>
+        </div>
+    `;
+    
+    resultsSection.style.display = 'block';
+    resultsSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+function resetForm() {
+    document.getElementById('comparisonForm').reset();
+    document.getElementById('comparisonResults').style.display = 'none';
+}
+</script>
+{% endblock %}

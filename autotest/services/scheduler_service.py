@@ -143,8 +143,11 @@ class SchedulerService:
             # Calculate next run time
             scheduled_test.next_run = self._calculate_next_run(scheduled_test)
             
-            # Store in database
-            self.db_connection.database.scheduled_tests.insert_one(asdict(scheduled_test))
+            # Store in database (convert enum to string for serialization)
+            schedule_dict = asdict(scheduled_test)
+            schedule_dict['frequency'] = scheduled_test.frequency.value
+            schedule_dict['status'] = scheduled_test.status.value
+            self.db_connection.database.scheduled_tests.insert_one(schedule_dict)
             
             self.logger.info(f"Created scheduled test: {schedule_id} - {scheduled_test.name}")
             return schedule_id

@@ -1,0 +1,146 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Schedules - AutoTest{% endblock %}
+
+{% block content %}
+<main id="main-content">
+    <header class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">Scheduled Tests</h1>
+            <p class="page-description">
+                Manage your automated testing schedules and view execution history.
+            </p>
+        </div>
+        <div class="page-actions">
+            <a href="{{ url_for('scheduler.create_schedule') }}" class="btn btn-primary">
+                Create Schedule
+            </a>
+        </div>
+    </header>
+
+    <!-- Filters -->
+    <section class="content-section">
+        <h2 class="section-title">Filter Schedules</h2>
+        <form method="GET" class="filter-form">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="project_id" class="form-label">Project</label>
+                    <select name="project_id" id="project_id" class="form-input">
+                        <option value="">All Projects</option>
+                        {% for project in projects %}
+                        <option value="{{ project.project_id }}" 
+                                {% if current_filters.project_id == project.project_id %}selected{% endif %}>
+                            {{ project.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="status" class="form-label">Status</label>
+                    <select name="status" id="status" class="form-input">
+                        <option value="">All Statuses</option>
+                        <option value="active" {% if current_filters.status == 'active' %}selected{% endif %}>Active</option>
+                        <option value="paused" {% if current_filters.status == 'paused' %}selected{% endif %}>Paused</option>
+                        <option value="completed" {% if current_filters.status == 'completed' %}selected{% endif %}>Completed</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="per_page" class="form-label">Results per page</label>
+                    <select name="per_page" id="per_page" class="form-input">
+                        <option value="20" {% if current_filters.per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if current_filters.per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if current_filters.per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                </div>
+            </div>
+        </form>
+    </section>
+
+    <!-- Schedules List -->
+    <section class="content-section">
+        {% if schedules %}
+        <h2 class="section-title">Schedules ({{ schedules|length }} found)</h2>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col">Project</th>
+                        <th scope="col">Frequency</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Next Run</th>
+                        <th scope="col">Last Run</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for schedule in schedules %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('scheduler.view_schedule', schedule_id=schedule.schedule_id) }}">
+                                {{ schedule.name }}
+                            </a>
+                        </td>
+                        <td>
+                            {% if schedule.project_id %}
+                                {{ schedule.project_id }}
+                            {% else %}
+                                <span class="text-muted">No project</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ schedule.frequency|title }}</td>
+                        <td>
+                            <span class="status-badge status-{{ schedule.status }}">
+                                {{ schedule.status|title }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if schedule.next_run %}
+                                {{ schedule.next_run|format_datetime }}
+                            {% else %}
+                                <span class="text-muted">Not scheduled</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if schedule.last_run %}
+                                {{ schedule.last_run|format_datetime }}
+                            {% else %}
+                                <span class="text-muted">Never</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <button type="button" class="btn btn-sm btn-primary" title="Run Now">
+                                    Run
+                                </button>
+                                <button type="button" class="btn btn-sm btn-secondary" title="Edit">
+                                    Edit
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <h2 class="empty-state-title">No Schedules Found</h2>
+            <p class="empty-state-description">
+                {% if current_filters.project_id or current_filters.status %}
+                    No schedules found for the current filters. Try adjusting your search criteria.
+                {% else %}
+                    No scheduled tests have been created yet. Create your first schedule to automate accessibility testing.
+                {% endif %}
+            </p>
+            <a href="{{ url_for('scheduler.create_schedule') }}" class="btn btn-primary">
+                Create First Schedule
+            </a>
+        </div>
+        {% endif %}
+    </section>
+</main>
+{% endblock %}
